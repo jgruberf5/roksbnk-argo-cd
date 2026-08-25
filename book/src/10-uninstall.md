@@ -54,9 +54,18 @@ contains `bnk-down`:
 
 Click **Sync → Synchronize**. Only `bnk-init` and `bnk-down` run — the
 cluster, registry and preflight gates are skipped, because the state they
-would produce is already on the PVC. Open **bnk-down → Logs**:
+would produce is already on the PVC. While the destroy runs the tree shows
+`bnk-down` in progress and the Application *Progressing*:
 
-![bnk-down logs](images/logs-bnk-down.png)
+![The tree while bnk-down is running](images/app-tearing-down.png)
+
+Open **bnk-down → Logs** to follow the destroy live…
+
+![bnk-down logs while the destroy is running](images/logs-bnk-down-running.png)
+
+…and after it completes:
+
+![bnk-down logs, complete](images/logs-bnk-down.png)
 
 ```text
 [status] running deployed=unknown — bnk down in progress
