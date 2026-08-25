@@ -105,11 +105,17 @@ fi
 SUBNET_ID="$(cat "$HUB_STATE/subnet_id")"
 
 # ── Attach to every gateway, and VERIFY ──────────────────────────────────────
+# IBM Cloud allows a VPC on ONE transit gateway. Listing several in TGWS only
+# makes sense for a multi-gateway account layout; the second attach fails with
+# invalid_state and the reason is printed verbatim instead of a jq parse error.
+[[ ${#TGW_IDS[@]} -le 1 ]] || say "note: a VPC may be attached to only one transit gateway — the first attach that succeeds wins"
 for i in "${!TGW_IDS[@]}"; do
   gid="${TGW_IDS[$i]}"; gname="${TGW_NAMES[$i]}"
-  cid="$(ibmcloud tg connections "$gid" --output json | jq -r --arg v "$VPC_ID" '.[]?|select(.network_id|contains($v))|.id' | head -1)"
+  cid="$(ibmcloud tg connections "$gid" --output json 2>/dev/null | jq -r --arg v "$VPC_ID" '.[]?|select(.network_id|contains($v))|.id' 2>/dev/null | head -1)"
   if [[ -z "$cid" ]]; then
-    cid="$(ibmcloud tg connection-create "$gid" --name "${HUB_PREFIX}-conn" --network-type vpc --network-id "$VPC_CRN" --output json | jq -r .id)"
+    out="$(ibmcloud tg connection-create "$gid" --name "${HUB_PREFIX}-conn" --network-type vpc --network-id "$VPC_CRN" --output json 2>&1)" || true
+    cid="$(jq -r '.id // empty' <<<"$out" 2>/dev/null || true)"
+    [[ -n "$cid" ]] || { echo "could not attach hub VPC to $gname:" >&2; echo "$out" | sed 's/^/    /' >&2; exit 1; }
   fi
   for _ in $(seq 1 40); do [[ "$(ibmcloud tg connection "$gid" "$cid" --output json 2>/dev/null | jq -r '.status // empty')" == attached ]] && break; sleep 6; done
   [[ "$(ibmcloud tg connection "$gid" "$cid" --output json | jq -r .status)" == attached ]] || { echo "connection to $gname never reached 'attached'" >&2; exit 1; }

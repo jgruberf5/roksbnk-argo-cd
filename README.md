@@ -94,6 +94,24 @@ EVALUATION.md                   the discovery study
 
 ## Running it for real
 
+### 0. Option: build the hub VSI (upstream Argo CD in the fabric)
+
+`hack/vsi/` builds the hub topology from a clean slate, adapted from roksbnkctl's Argo Workflows VSI bootstrap: a VPC with a chosen prefix, subnet, public gateway, one connection per Transit Gateway (**by name or id**, overlap-checked against every VPC already on them), and a `bx2-4x16` VSI running k3s + upstream Argo CD behind a floating IP. No Harbor — the connected BNK 2.4 path pulls from FAR.
+
+```bash
+export IBMCLOUD_API_KEY=…
+export HUB_STATE=$HOME/.cache/roksbnk-argo-cd/hub-state          # Linux filesystem
+TGWS="bnkci-testing sm-cli-tgw" HUB_REGION=us-south HUB_CIDR=10.250.0.0/24 \
+  bash hack/vsi/bootstrap-hub.sh                                  # ~10 min; prints the Argo CD URL
+set -a; source "$HUB_STATE/hub.env"; set +a                       # ARGOCD_URL, ARGOCD_ADMIN_PASSWORD, HUB_FIP, key
+GIT_DEPLOY_KEY=~/.ssh/argocd-deploy-key WORKSPACE=sm-cli \
+  bash hack/vsi/apply-hub.sh                                      # health check, AppProject, repo key, bnk-secrets, Application
+ssh -i "$HUB_SSH_KEY_FILE" ubuntu@$HUB_FIP argocd --core app sync bnk-sm-cli
+bash hack/vsi/unbootstrap-hub.sh --yes                            # after deleting the Applications
+```
+
+The k3s API is never exposed — `apply-hub.sh` and the sync run over ssh; the Argo CD UI is on `https://<floating-ip>:30443` (user `admin`, initial password in `hub.env`). Register the deploy key on the repository first: `gh repo deploy-key add ~/.ssh/argocd-deploy-key.pub -R <org>/roksbnk-argo-cd`.
+
 ### 1. Bootstrap Argo CD
 
 In-target:
