@@ -28,6 +28,9 @@ rules:
   - apiGroups: [""]
     resources: [configmaps]
     verbs: [get, list, create, patch, update]
+  - apiGroups: [batch]            # SyncFail names the failed hook Jobs
+    resources: [jobs]
+    verbs: [get, list]
   {{- if .Values.flpHandoff.writeSecret }}
   # create cannot be pinned to a resourceName; get/update/patch are.
   - apiGroups: [""]
