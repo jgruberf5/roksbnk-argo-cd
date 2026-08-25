@@ -3,7 +3,7 @@
 # Healthy. Re-captures bnk status --json (component readiness, CNEInstance
 # conditions, outputs) into the status ConfigMap for the Argo CD UI.
 roksbnkctl -w "$WS" bnk status --json > /tmp/status.json
-write_status succeeded "$(jq -r '.deployed // "unknown"' /tmp/status.json)" "post-sync bnk status captured" /tmp/status.json
+write_status succeeded "$(jq -r "$DEPLOYED_JQ" /tmp/status.json)" "post-sync bnk status captured" /tmp/status.json
 roksbnkctl -w "$WS" bnk status || true
 ` -}}
 {{ include "bnk.hookJob" (dict "root" . "name" "bnk-status" "hook" "PostSync" "wave" "0" "deadline" .Values.timeouts.status "script" $script "cwc" false) }}

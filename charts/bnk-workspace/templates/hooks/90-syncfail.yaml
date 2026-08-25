@@ -4,7 +4,9 @@
 # in place (hook-delete-policy BeforeHookCreation) for log inspection.
 mk_local_kubeconfig
 roksbnkctl -w "$WS" bnk status --json > /tmp/status.json 2>/dev/null || echo '{}' > /tmp/status.json
-cur=$(local_kubectl get configmap "$STATUS_CM" -o jsonpath='{.data.message}' 2>/dev/null || true)
-write_status failed "$(jq -r '.deployed // "unknown"' /tmp/status.json)" "sync failed: ${cur:-see hook job logs (kubectl -n $(cat $SA/namespace) logs -l roksbnkctl.io/workspace=$WS --tail=200)}" /tmp/status.json
+failed=$(local_kubectl get jobs -l roksbnkctl.io/workspace="$WS" -o json 2>/dev/null | jq -r '[.items[] | select((.status.failed // 0) > 0) | .metadata.name] | join(",")')
+prev=$(local_kubectl get configmap "$STATUS_CM" -o jsonpath='{.data.message}' 2>/dev/null || true)
+case "$prev" in preflight:*|"bnk "*" exited"*) reason="$prev" ;; *) reason="" ;; esac
+write_status failed "$(jq -r "$DEPLOYED_JQ" /tmp/status.json)" "sync failed${failed:+ (hooks: $failed)}${reason:+ — $reason}; logs: kubectl -n $(cat $SA/namespace) logs -l roksbnkctl.io/workspace=$WS --tail=200" /tmp/status.json
 ` -}}
 {{ include "bnk.hookJob" (dict "root" . "name" "bnk-syncfail" "hook" "SyncFail" "wave" "0" "deadline" .Values.timeouts.status "script" $script "cwc" false) }}

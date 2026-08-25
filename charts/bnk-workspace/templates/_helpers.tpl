@@ -41,6 +41,8 @@ STATUS_CM={{ .Values.status.configMapName | quote }}
 HOOK_NAME=${HOOK_NAME:-unknown}
 SA=/var/run/secrets/kubernetes.io/serviceaccount
 LOCAL_KUBECONFIG=/tmp/local.kubeconfig
+# jq: .deployed may be false — `//` would turn that into "unknown"
+DEPLOYED_JQ='if has("deployed") and .deployed != null then (.deployed|tostring) else "unknown" end'
 local_kubectl() { kubectl --kubeconfig="$LOCAL_KUBECONFIG" "$@"; }
 mk_local_kubeconfig() {
   [ -f "$LOCAL_KUBECONFIG" ] && return 0
@@ -62,7 +64,7 @@ write_status() {
   echo "[status] $1 deployed=$2 — $3"
 }
 deployed_now() {
-  roksbnkctl -w "$WS" bnk status --json 2>/dev/null | jq -r '.deployed // "unknown"' 2>/dev/null || echo unknown
+  roksbnkctl -w "$WS" bnk status --json 2>/dev/null | jq -r "$DEPLOYED_JQ" 2>/dev/null || echo unknown
 }
 {{- end }}
 
