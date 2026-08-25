@@ -1,5 +1,42 @@
-*.tgz
-charts/*/charts/
-.rendered/
-*.local.yaml
+# --- secrets & local environment -------------------------------------------
 .env
+.env.*
+!.env.example
+*.secret.yaml
+*.secrets.yaml
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+*.jwt
+*.tgz
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+config.yaml.local
+*.local.yaml
+
+# --- roksbnkctl / terraform artefacts (never belong in this repo) ----------
+.roksbnkctl/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.example.tfvars
+.demo-state/
+.bootstrap-state/
+
+# --- build / render output --------------------------------------------------
+.rendered/
+charts/*/charts/
+charts/*/Chart.lock
+*.log
+
+# --- tooling / editors ------------------------------------------------------
+.claude/settings.local.json
+.claude/worktrees/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

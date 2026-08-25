@@ -24,14 +24,14 @@ spec:
     spec:
       project: bnk
       sources:
-        - repoURL: https://github.com/<org>/roksbnk-argo-cd.git
+        - repoURL: https://github.com/jgruberf5/roksbnk-argo-cd.git
           targetRevision: main
           path: charts/bnk-workspace
           helm:
             releaseName: "bnk-{{ .workspace }}"
             valueFiles:
               - "$values/apps/overlays/{{ .workspace }}/values.yaml"
-        - repoURL: https://github.com/<org>/roksbnk-argo-cd.git
+        - repoURL: https://github.com/jgruberf5/roksbnk-argo-cd.git
           targetRevision: main
           ref: values
       destination:
