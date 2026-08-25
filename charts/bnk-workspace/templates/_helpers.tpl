@@ -63,8 +63,14 @@ write_status() {
   local_kubectl patch configmap "$STATUS_CM" --type merge -p "$patch" >/dev/null
   echo "[status] $1 deployed=$2 — $3"
 }
+# roksbnkctl `bnk status` reports deployed=true whenever the phase's state file
+# exists — including right after `bnk down`, when it holds zero resources. Cross-
+# check the Terraform state so a torn-down workspace reports deployed=false.
 deployed_now() {
-  roksbnkctl -w "$WS" bnk status --json 2>/dev/null | jq -r "$DEPLOYED_JQ" 2>/dev/null || echo unknown
+  d=$(roksbnkctl -w "$WS" bnk status --json 2>/dev/null | jq -r "$DEPLOYED_JQ" 2>/dev/null || echo unknown)
+  st="${ROKSBNKCTL_HOME:-/work/.roksbnkctl}/$WS/state/terraform.tfstate"
+  if [ "$d" = "true" ] && { [ ! -f "$st" ] || [ "$(jq -r '.resources | length' "$st" 2>/dev/null || echo 1)" = "0" ]; }; then d=false; fi
+  echo "$d"
 }
 {{- end }}
 

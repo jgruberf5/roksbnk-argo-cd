@@ -22,7 +22,7 @@ trap 'exit 130' INT
 write_status running unknown "bnk %[1]s in progress"
 roksbnkctl -w "$WS" bnk %[1]s --auto
 roksbnkctl -w "$WS" bnk status --json > /tmp/status.json
-write_status succeeded "$(jq -r "$DEPLOYED_JQ" /tmp/status.json)" "bnk %[1]s completed" /tmp/status.json
+write_status succeeded "$(deployed_now)" "bnk %[1]s completed" /tmp/status.json
 ` $verb -}}
 {{- $cwc := and (eq $verb "up") (eq (include "bnk.cwcGuard" .) "true") }}
 {{ include "bnk.hookJob" (dict "root" . "name" (printf "bnk-%s" $verb) "hook" "Sync" "wave" "0" "deadline" (ternary .Values.timeouts.down .Values.timeouts.apply (eq $verb "down")) "script" $script "cwc" $cwc) }}

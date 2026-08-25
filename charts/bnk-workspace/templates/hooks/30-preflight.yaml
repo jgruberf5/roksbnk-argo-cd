@@ -47,7 +47,7 @@ if [ -f "$applied" ] && [ -n "${ROKSBNKCTL_MANIFEST_VERSION:-}" ]; then
 fi
 
 roksbnkctl -w "$WS" bnk status --json > /tmp/status.json || echo '{}' > /tmp/status.json
-echo "preflight: ok (deployed=$(jq -r "$DEPLOYED_JQ" /tmp/status.json))"
+echo "preflight: ok (deployed=$(deployed_now))"
 ` }}
 {{- end }}
 {{ include "bnk.hookJob" (dict "root" . "name" "bnk-preflight" "hook" "Sync" "wave" "-1" "deadline" .Values.timeouts.preflight "script" $script "cwc" false) }}
