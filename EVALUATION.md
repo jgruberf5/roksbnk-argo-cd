@@ -250,6 +250,7 @@ No `ops` image (`tools-ibmcloud`) is needed — it lacks terraform/helm.
 |---|---|---|
 | `ROKSBNKCTL_STATE_BACKEND=s3` + `ROKSBNKCTL_STATE_S3_*` env overrides (`internal/config/envoverride.go` has no `state:` mapping) | S | lets the env-built workspace use COS remote state; the PVC then holds only JSON handoffs |
 | `bnk status --json` (and `plan`) write a status ConfigMap (`--status-configmap ns/name`) — or keep it in the hook shell | S | Argo CD health without shell glue |
+| `bnk status --json` should report `deployed:false` when the state file holds zero resources (today it reports `true` right after `bnk down`; the chart cross-checks the tfstate) | S | correct health after a teardown without shell workarounds |
 | `bnk preflight` verb = `prepareBNKUp` up to and including `terraform plan` (with the bnk-phase override), categorised exit codes (PRD 17) | M | **needed**: `roksbnkctl plan` is the legacy composite path and cannot gate a split workspace; the chart's shell gate only covers the file guards |
 | cwc-guard folded into `bnk up` (2.3) or documented sentinel pattern | S | one container, no sidecar lifecycle problem |
 | `cluster register --argocd-cluster-secret <ns/name>` writes an Argo CD cluster Secret from the fetched admin config (with token refresh via `kubeconfig_refresh.go`) | M | hub model for native manifests |

@@ -35,11 +35,13 @@ ARGOCD_PASSWORD=… SHOT_SECRETS="$IBMCLOUD_API_KEY" APP_NS=bnk-sm-cli \
 | `logs:<job>[:suffix]` | `logs-<job>[-suffix].png` — the Job's Logs tab, scrolled to the end |
 | `res:<Kind>/<name>[:tab][:suffix]` | `res-<name>-<tab>.png` — a resource's panel (`summary`, `manifest`, `events`, `logs`) |
 | `settings-repos`, `settings-projects` | `settings-repositories.png`, `settings-projects.png` |
+| `details-sources[:suffix]` | `details-sources[-suffix].png` — Details → Sources with Source 1 expanded (Helm parameters / overrides) |
 | `delete-dialog` | `delete-dialog.png` |
 
 The uninstall chapter's pictures are the same steps run after switching
-`lifecycle` to `down`: `app:down-outofsync` before the sync, `logs:bnk-down`
-during it, `app:torn-down` after, and `delete-dialog`.
+`lifecycle` to `down`: `app:down-outofsync` and `details-sources:down` before
+the sync, `app:tearing-down` and `logs:bnk-down:running` during it,
+`app:torn-down` and `logs:bnk-down` after, and `delete-dialog`.
 
 ## Secrets
 

@@ -60,6 +60,14 @@ the log from the end:
 Fix the cause and **Sync** again: the apply is idempotent and continues from
 the Terraform state on the PVC.
 
+## "bnk down completed" but the Application went Degraded
+
+roksbnkctl's `bnk status --json` reports `deployed: true` whenever the phase's
+state file exists — including right after a destroy, when it holds zero
+resources. The hooks therefore cross-check the Terraform state's resource
+count before writing `deployed`; if you run an older chart, update it. (Seen on
+the first `sm-cli` teardown; fixed in the chart the same day.)
+
 ## Argo CD says OutOfSync right after a successful sync
 
 Expected once: the hooks patched `bnk-status`, and Argo CD compares it with

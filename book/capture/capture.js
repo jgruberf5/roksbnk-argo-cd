@@ -141,11 +141,22 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         await goto(appUrl());
         await clickText('button', 'details'); await sleep(1500);
         // the sliding panel's tabs are anchors/spans; find "Parameters" by text
-        await page.evaluate(() => { const t = Array.from(document.querySelectorAll('a,span,div')).find(e => ['Sources','Parameters'].includes((e.textContent || '').trim()) && e.children.length === 0); if (t) t.click(); });
-        await sleep(2000);
+        // the panel's tab strip: match the tab by (case-insensitive) text, prefer the smallest element
+        await page.evaluate(() => {
+          const cands = Array.from(document.querySelectorAll('.tabs__nav a, .tabs__nav span, [class*="tab"] a, [class*="tab"] span, a, span, div, li'))
+            .filter(e => /^(sources|parameters)$/i.test((e.textContent || '').trim()));
+          cands.sort((a, b) => a.textContent.length - b.textContent.length || (a.getBoundingClientRect().width - b.getBoundingClientRect().width));
+          if (cands[0]) cands[0].click();
+        });
+        await sleep(2500);
         // expand the first (chart) source so its Helm parameters are visible
-        await page.evaluate(() => { const t = Array.from(document.querySelectorAll('a,span,div,i')).find(e => /charts\/bnk-workspace/.test(e.textContent || '') && e.children.length <= 2); if (t) t.click(); });
-        await sleep(1500);
+        await page.evaluate(() => {
+          // "Source 1: <repo>" header row → its expand chevron
+          const hdr = Array.from(document.querySelectorAll('div,span,a')).filter(e => /^Source 1:/.test((e.textContent || '').trim()) && e.children.length <= 3).sort((a, b) => a.textContent.length - b.textContent.length)[0];
+          const chev = hdr && hdr.parentElement && hdr.parentElement.querySelector('i[class*="chevron"], i[class*="angle"], [class*="expand"]');
+          (chev || hdr) && (chev || hdr).click();
+        });
+        await sleep(2000);
         await shot(rest[0] ? `details-sources-${rest[0]}` : 'details-sources');
         await page.keyboard.press('Escape');
       }

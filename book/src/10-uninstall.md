@@ -31,8 +31,10 @@ git commit -am "sm-cli: tear BNK down" && git push
 is a *multi-source* Application (the chart and the values overlay are two
 sources), so the Helm values live under **Details → Sources**: open
 **Applications → bnk-sm-cli → Details**, choose the **Sources** tab, expand
-the `charts/bnk-workspace` source, click **Edit** next to its parameters, add
-`lifecycle` = `down`, **Save**. Argo CD stores the override in the Application
+**Source 1** (`PATH=charts/bnk-workspace`), click **Edit** in its **Helm**
+section, set the `lifecycle` parameter to `down`, **Save**. The override shows
+in the Parameters list with a wrench icon, and the Application card gains a
+"1 parameter override(s)" badge. Argo CD stores the override in the Application
 spec (`spec.sources[0].helm.parameters`); a later Git change to the overlay
 will not undo it until you remove the override.
 
@@ -65,11 +67,24 @@ module.license.module.license.kubectl_manifest.license[0]: Destroying...
 …
 module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance[0]: Destruction complete
 module.flo.module.flo.helm_release.flo[0]: Destruction complete
+…
+Error: context deadline exceeded
+  ⚠ namespace "f5-bnk" was stuck Terminating; cleared F5 finalizers on 2 object(s) and it drained.
+→ terraform destroy (retry, after freeing the stuck namespace)
+Plan: 0 to add, 0 to change, 5 to destroy.
 module.flo.module.flo.ibm_iam_trusted_profile.cne_controller[0]: Destruction complete
 module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destruction complete
-Destroy complete! Resources: 37 destroyed.
+Destroy complete! Resources: 5 destroyed.
+✓ BNK phase destroyed. Cluster phase /work/.roksbnkctl/sm-cli/state-cluster/ is intact.
 [status] succeeded deployed=false — bnk down completed
 ```
+
+That log is what actually happened on `sm-cli`: the first destroy hit a
+namespace that would not finish terminating (an F5 custom resource with a
+finalizer whose controller was already gone), roksbnkctl cleared the finalizers,
+watched the namespace drain, and re-ran the destroy for the five resources
+that were left. Nothing for the operator to do — but it is worth recognising
+in the log rather than mistaking the first `Error:` for a failure.
 
 `bnk down` tears the phases down in reverse-dependency order, then sweeps the
 things Terraform cannot see: F5's validating webhook, the licence secrets in
