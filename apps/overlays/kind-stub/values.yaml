@@ -1,7 +1,7 @@
 # Local verification on kind with the stub runner (hack/stub-runner).
 workspace: kindstub
 namespace: bnk-kindstub
-lifecycle: up
+lifecycle: down
 line: "2.4"
 runner:
   image: roksbnkctl-stub
@@ -35,7 +35,7 @@ env:
   ROKSBNKCTL_LICENSE_MODE: subscription
   STUB_APPLY_SECONDS: "20"
   STUB_DOWN_SECONDS: "8"
-  STUB_MIRROR_MISSING: "3"
+  STUB_MIRROR_MISSING: "0"
 timeouts:
   init: 120
   cluster: 300
