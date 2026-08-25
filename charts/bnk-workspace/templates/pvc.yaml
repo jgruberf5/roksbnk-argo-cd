@@ -3,6 +3,11 @@
 # the applied-tfvars snapshot all live under /work/.roksbnkctl. Losing it orphans
 # the IAM trusted profile and leaves nothing to `bnk down` from — so the claim is
 # never pruned and never deleted with the Application.
+#
+# ignore-healthcheck: block storage classes (kind "standard", IBM VPC
+# ibmc-vpc-block-*) bind WaitForFirstConsumer, so the claim stays Pending —
+# "Progressing" to Argo CD — until the first hook Job mounts it. Without this
+# the wave never completes and the sync deadlocks.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -13,6 +18,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-10"
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/ignore-healthcheck: "true"
 spec:
   accessModes:
     - {{ .Values.storage.accessMode }}
