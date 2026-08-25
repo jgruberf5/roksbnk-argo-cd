@@ -4,10 +4,13 @@
 # the IAM trusted profile and leaves nothing to `bnk down` from — so the claim is
 # never pruned and never deleted with the Application.
 #
-# ignore-healthcheck: block storage classes (kind "standard", IBM VPC
-# ibmc-vpc-block-*) bind WaitForFirstConsumer, so the claim stays Pending —
-# "Progressing" to Argo CD — until the first hook Job mounts it. Without this
-# the wave never completes and the sync deadlocks.
+# Wave: block storage classes (kind "standard", IBM VPC ibmc-vpc-block-*) bind
+# WaitForFirstConsumer, so the claim stays Pending — "Progressing" to Argo CD —
+# until a pod mounts it, and Argo CD will not advance past a wave with a
+# Progressing resource. The claim therefore shares the first hook's wave (-4):
+# the bnk-init Job is its first consumer and the claim binds inside that wave.
+# (ignore-healthcheck keeps Application health sane while it is Pending; it does
+# not affect wave gating.)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -16,7 +19,7 @@ metadata:
   labels:
     {{- include "bnk.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "-10"
+    argocd.argoproj.io/sync-wave: "-4"
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
     argocd.argoproj.io/ignore-healthcheck: "true"
 spec:
