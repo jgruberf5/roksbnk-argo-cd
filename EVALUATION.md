@@ -14,7 +14,7 @@
 
 | Phase | What | New containers | Code changes to roksbnkctl | Rough effort* |
 |---|---|---|---|---|
-| **0 — Spike** | One `Application` on OpenShift GitOps in an existing connected ROKS cluster: PreSync `plan` gate → Sync `bnk up --auto` → PostSync `bnk status --json` | none (runner as-is) | none | 1 week |
+| **0 — Spike** | One `Application` on OpenShift GitOps in an existing connected ROKS cluster: Sync-phase gates at negative waves → `bnk up --auto` at wave 0 → PostSync `bnk status --json` | none (runner as-is) | none | 1 week |
 | **1 — Productise** | Repo layout, AppProject + RBAC, secrets via External Secrets Operator, Lua health, PreDelete teardown, disconnected/hub variant, ApplicationSet fleet, book chapters + recorded demos | none (+ publish `flp-status`) | small: env for remote state, cwc-guard sentinel, status ConfigMap writer, exit-code classes | 4–6 weeks |
 | **2 — Operator (optional)** | `BNKDeployment` CRD + `roksbnk-operator` so Argo CD syncs one CR and the controller owns the lifecycle; Argo CD health reads CR status | **1**: `roksbnk-operator` (FROM runner) | large: reconciler over `internal/orchestration`; private-endpoint support | 8–12 weeks |
 
@@ -70,7 +70,7 @@ Verified against current docs (Argo CD 3.3 is the latest stable; OpenShift GitOp
 
 | Capability | Use here |
 |---|---|
-| **Resource hooks** `PreSync` → `Sync` → `PostSync`; `SyncFail` on failure; `PreDelete` (3.3+) / `PostDelete` on Application deletion | Guards = PreSync Jobs; `bnk up` = Sync Job; status = PostSync Job; diagnostics = SyncFail Job; `bnk down` = PreDelete Job |
+| **Resource hooks** `PreSync` → `Sync` → `PostSync`; `SyncFail` on failure; `PreDelete` (3.3+) / `PostDelete` on Application deletion | Guards = Sync-phase Jobs at negative waves (PreSync runs before the substrate exists); `bnk up` = Sync Job at wave 0; status = PostSync Job; diagnostics = SyncFail Job; `bnk down` = PreDelete Job |
 | A failed hook Job fails the sync; later phases don't run; `SyncFail` hooks run | Guard failure gates the 45–90 min apply exactly like a Workflow step failure |
 | `hook-delete-policy: BeforeHookCreation` (default) / `HookSucceeded` / `HookFailed` | keep failed Jobs for log inspection, replace on next sync |
 | **Sync waves** order resources and hooks within a phase; Argo waits for health between waves (2 s default gap) | `cluster register` (wave −3) → `registry adopt` (−2) → `plan` (−1) → `bnk up` (0) |
@@ -109,14 +109,19 @@ One `Application` per workspace. Regular resources (synced and diffed by Argo CD
 
 | Hook | Wave | Command | Purpose |
 |---|---|---|---|
-| PreSync | −4 | `roksbnkctl init -w $WS --non-interactive --override-from-env && roksbnkctl doctor` | rebuild workspace from Git-declared env; host/tool checks |
-| PreSync | −3 | `cluster register $NAME --registry-cos-name …` (in-target) / `cluster up --auto` (hub) | produces `cluster-outputs.json` |
-| PreSync | −2 | `registry adopt` (disconnected) / `registry replicate --target generic` (hub, FAR-reachable) | produces `registry-mirror.json`; satisfies `guardRegistryMirror` |
-| PreSync | −1 | shell replica of the workspace-file guards (mirror record, FLP hand-off, line change) — `bnk preflight` once it exists | fast fail before the long apply; `bnk up` still re-runs every guard itself |
+| (regular) | −10 | Namespace, ServiceAccount, Role/RoleBinding, ConfigMap `bnk-env`, Secret | substrate |
+| (regular) | −4 | PVC `bnk-work` | same wave as the first hook: `WaitForFirstConsumer` classes bind only when a pod mounts the claim, and Argo CD will not leave a wave while a resource is Progressing |
+| Sync | −4 | `roksbnkctl init -w $WS --non-interactive --override-from-env && roksbnkctl doctor` | rebuild workspace from Git-declared env; host/tool checks |
+| Sync | −3 | `cluster register $NAME --registry-cos-name …` (in-target) / `cluster up --auto` (hub) | produces `cluster-outputs.json` |
+| Sync | −2 | `registry adopt` (disconnected) / `registry replicate --target generic` (hub, FAR-reachable) | produces `registry-mirror.json`; satisfies `guardRegistryMirror` |
+| Sync | −1 | shell replica of the workspace-file guards (mirror record, FLP hand-off, line change) — `bnk preflight` once it exists | fast fail before the long apply; `bnk up` still re-runs every guard itself |
 | Sync | 0 | `bnk up --auto` + `cwc-guard` container (BNK 2.3) | the apply, admission sweep, CA DaemonSet, Gateway bundle all happen here as today |
-| PostSync | 0 | `bnk status --json` → `kubectl create configmap bnk-status --from-file` (SSA) | machine-readable outcome; Argo Lua health reads it |
-| SyncFail | 0 | collect `journal`, last 200 lines of the apply log, `bnk status --json` into a ConfigMap / stdout | diagnostics visible in the UI |
+| (regular) | 0 | ConfigMap `bnk-status` (data owned by the hooks; `ignoreDifferences` + `RespectIgnoreDifferences`) | Lua health → Application health |
+| PostSync | 0 | `bnk status --json` → merge-patched into `bnk-status` | machine-readable outcome |
+| SyncFail | 0 | records the failed hooks + reason into `bnk-status` | Application Degraded with the reason |
 | PreDelete (Argo CD ≥ 3.3) | 0 | `bnk down --auto` | teardown when the Application is deleted; PVC kept via `Delete=false` |
+
+The gates are **Sync-phase hooks at negative waves, not PreSync hooks**: PreSync runs before any regular resource is applied, so a PreSync Job has no PVC, ConfigMap, Secret or ServiceAccount to start with. Within the Sync phase, Argo CD interleaves hooks and resources by wave and waits for each wave's health, which gives exactly the ordering above.
 
 Behavioural mapping of today's UX: the "Apply this plan?" prompt becomes **manual sync** on the Application (RBAC-controlled, audited, optionally restricted by an AppProject sync window); `roksbnkctl bnk status` becomes Application health; `bnk down` becomes deleting the Application (or, before 3.3, flipping a `lifecycle: down` value in Git that switches the Sync hook to `bnk down --auto`).
 
@@ -267,6 +272,20 @@ No `ops` image (`tools-ibmcloud`) is needed — it lacks terraform/helm.
 9. **Two sources of truth if Design 2 slices are adopted** (cert-manager, gateway) — keep the `resources.*.create: false` flags aligned in `bnk-env`.
 
 ---
+
+## 9a. Verified on kind (2026-08-25)
+
+The scaffold in this repository (`charts/bnk-workspace`, `bootstrap/`, `apps/`) was exercised against **Argo CD v3.5.1 on kind** with a stub runner image that reproduces roksbnkctl's verbs, guards, exit codes and workspace files (`hack/stub-runner`). Transcripts: `docs/verification/`.
+
+| Scenario | Result |
+|---|---|
+| `bnk up` | init → cluster → preflight → `bnk-up` → PostSync; Application **Synced / Healthy — "BNK deployed"** |
+| registry mirror incomplete | gate fails at wave −1, **no `bnk-up` Job created**, SyncFail runs, **Degraded** with the reason |
+| apply fails inside `bnk up` | `bnk-up` Failed, **Degraded — "bnk up exited with status 1"** |
+| `lifecycle: down` | `bnk-down` → PostSync; **Healthy — "BNK torn down"** |
+| delete the Application | PreDelete ran `bnk down` (events + PVC state), resources removed in ~12 s, **PVC retained** |
+
+What the harness caught (all apply to a real cluster): (1) gates must be Sync-phase hooks (see §5); (2) a `WaitForFirstConsumer` PVC in its own wave deadlocks the sync — `argocd.argoproj.io/ignore-healthcheck` fixes Application health but not wave gating, so the claim shares the first hook's wave; (3) a Degraded resource at the end of the Sync phase fails the operation and skips PostSync — the status object must never be Degraded on a successful run (a `jq '.deployed // "unknown"'` that turned `false` into "unknown" did exactly that); (4) Argo CD deletes the PreDelete hook Job with the Application, so `bnk down` logs must be captured elsewhere; (5) the ApplicationSet/Application need `ignoreDifferences` on `bnk-status` `/data` plus `RespectIgnoreDifferences=true` or Argo CD overwrites the hooks' status on every sync.
 
 ## 10. What the book and demos should cover (proposal)
 
