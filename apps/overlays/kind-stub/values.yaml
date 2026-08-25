@@ -16,7 +16,8 @@ cluster:
   name: kind-existing-roks
   registryCosName: bnk-registry-cos
 registry:
-  mode: none
+  mode: adopt
+  target: generic
 preflight:
   doctor: true
 storage:
@@ -34,6 +35,7 @@ env:
   ROKSBNKCTL_LICENSE_MODE: subscription
   STUB_APPLY_SECONDS: "20"
   STUB_DOWN_SECONDS: "8"
+  STUB_MIRROR_MISSING: "3"
 timeouts:
   init: 120
   cluster: 300
