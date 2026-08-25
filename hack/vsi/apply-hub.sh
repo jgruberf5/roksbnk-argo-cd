@@ -16,7 +16,8 @@ APP_FILE="${APP_FILE:-apps/${WORKSPACE}-application.yaml}"
 NS="${NS:-bnk-${WORKSPACE}}"
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=20"
-V(){ ssh -i "$HUB_SSH_KEY_FILE" $SSH_OPTS ubuntu@"$HUB_FIP" "$@"; }
+# non-interactive ssh does not source .bashrc: pin the ubuntu user's kubeconfig
+V(){ ssh -i "$HUB_SSH_KEY_FILE" $SSH_OPTS ubuntu@"$HUB_FIP" "export KUBECONFIG=/home/ubuntu/.kube/config; $*"; }
 say(){ echo "==> $*" >&2; }
 
 # 1. Argo CD customisations from the repo
@@ -32,7 +33,7 @@ V "kubectl create namespace '$NS' --dry-run=client -o yaml | kubectl apply -f -"
 V "kubectl -n '$NS' create secret generic bnk-secrets --from-file=IBMCLOUD_API_KEY=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -" <<<"$IBMCLOUD_API_KEY" >&2
 
 # 4. Pick up the health check, then the Application
-V 'kubectl -n argocd rollout restart deploy/argocd-repo-server statefulset/argocd-application-controller >/dev/null; kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=180s >/dev/null' >&2
+V 'kubectl config set-context --current --namespace=argocd >/dev/null; kubectl -n argocd rollout restart deploy/argocd-repo-server statefulset/argocd-application-controller >/dev/null; kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=180s >/dev/null' >&2
 V "kubectl apply -f ~/bootstrap/$(basename "$APP_FILE")" >&2
 sleep 5
 V "argocd --core app get $(V "kubectl -n argocd get -f ~/bootstrap/$(basename "$APP_FILE") -o jsonpath={.metadata.name}") --refresh 2>&1 | sed -n '1,12p;/^Sync Status/p;/^Health Status/p'" >&2 || true
