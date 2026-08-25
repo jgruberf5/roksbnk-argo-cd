@@ -30,7 +30,8 @@ V "kubectl -n argocd create secret generic repo-roksbnk-argo-cd --from-literal=t
 
 # 3. Workspace namespace + secrets (secrets.mode: existing)
 V "kubectl create namespace '$NS' --dry-run=client -o yaml | kubectl apply -f -" >&2
-V "kubectl -n '$NS' create secret generic bnk-secrets --from-file=IBMCLOUD_API_KEY=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -" <<<"$IBMCLOUD_API_KEY" >&2
+# printf, not a here-string: <<< appends a newline and IAM then rejects the key
+printf '%s' "$IBMCLOUD_API_KEY" | V "kubectl -n '$NS' create secret generic bnk-secrets --from-file=IBMCLOUD_API_KEY=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -" >&2
 
 # 4. Pick up the health check, then the Application
 V 'kubectl config set-context --current --namespace=argocd >/dev/null; kubectl -n argocd rollout restart deploy/argocd-repo-server statefulset/argocd-application-controller >/dev/null; kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=180s >/dev/null' >&2
