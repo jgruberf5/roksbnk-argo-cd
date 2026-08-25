@@ -9,5 +9,5 @@
 %s
 roksbnkctl -w "$WS" kubeconfig --download
 ` $cmd -}}
-{{ include "bnk.hookJob" (dict "root" . "name" "bnk-cluster" "hook" "PreSync" "wave" "-3" "deadline" .Values.timeouts.cluster "script" $script "cwc" false) }}
+{{ include "bnk.hookJob" (dict "root" . "name" "bnk-cluster" "hook" "Sync" "wave" "-3" "deadline" .Values.timeouts.cluster "script" $script "cwc" false) }}
 {{- end }}

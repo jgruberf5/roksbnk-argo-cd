@@ -137,5 +137,5 @@ timeouts:                      # activeDeadlineSeconds per hook Job
   registry: 7200
   preflight: 900
   apply: 7200
-  status: 600
+  status: 300
   down: 5400

@@ -27,7 +27,9 @@ kubectl get ns argocd >/dev/null 2>&1 || kubectl create ns argocd
 kubectl apply -n argocd --server-side --force-conflicts \
   -f "https://raw.githubusercontent.com/argoproj/argo-cd/v${ARGOCD_VERSION}/manifests/install.yaml" >/dev/null
 
-echo ">> git server (dumb HTTP over the mounted bare repo)"
+echo ">> git server (smart HTTP over the mounted bare repo)"
+docker build -q -t git-http:dev "$HERE/git-http" >/dev/null
+kind load docker-image --name "$CLUSTER" git-http:dev
 kubectl apply -f "$HERE/gitserver.yaml" >/dev/null
 
 echo ">> stub runner image"
@@ -36,7 +38,7 @@ kind load docker-image --name "$CLUSTER" "$STUB_IMAGE"
 
 echo ">> Argo CD customisations (health check, AppProject)"
 kubectl apply -f "$ROOT/bootstrap/upstream/argocd-cm-health.yaml" >/dev/null
-kubectl apply -f "$ROOT/bootstrap/appproject-bnk.yaml" >/dev/null
+kubectl apply -n argocd -f "$ROOT/bootstrap/appproject-bnk.yaml" >/dev/null
 
 kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
 kubectl -n argocd rollout status deploy/argocd-server --timeout=300s

@@ -39,5 +39,5 @@ timeouts:
   cluster: 300
   preflight: 120
   apply: 600
-  status: 120
+  status: 90
   down: 300

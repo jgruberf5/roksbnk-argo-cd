@@ -17,5 +17,5 @@ roksbnkctl -w "$WS" registry verify
 {{- else }}
 {{- fail (printf "registry.mode must be none|adopt|replicate, got %q" .Values.registry.mode) }}
 {{- end }}
-{{ include "bnk.hookJob" (dict "root" . "name" "bnk-registry" "hook" "PreSync" "wave" "-2" "deadline" .Values.timeouts.registry "script" $script "cwc" false) }}
+{{ include "bnk.hookJob" (dict "root" . "name" "bnk-registry" "hook" "Sync" "wave" "-2" "deadline" .Values.timeouts.registry "script" $script "cwc" false) }}
 {{- end }}
