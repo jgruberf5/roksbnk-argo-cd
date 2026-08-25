@@ -16,6 +16,32 @@ topology: in-target
 
 line: "2.4"                    # BNK line; 2.3 enables the cwc-guard container by default
 
+# ---------------------------------------------------------------------------
+# SIZING — read this before anything else.
+#
+# F5's single-NIC sizing guide names three CLUSTER sizes. They are node count,
+# node flavour and TMM pod count — NOT the BNK `deploymentSize`. On ROKS the
+# CNEInstance deploymentSize is ALWAYS `Tiny` for the 2.4 line: every larger
+# profile requests hugepages that ROKS workers cannot provide, and the install
+# fails silently. Capacity comes from tmmReplicas and node size.
+#
+#   profile   workers/zone  flavour     TMM pods  L4 ingress (F5 figure)
+#   baseline  1 (3 nodes)   bx2.16x64   1         the BNK 2.4 install-guide shape
+#   small     2 (6 nodes)   bx2.8x32    3         ~7.8 Gbit/s
+#   medium    2 (6 nodes)   cx2.16x32   3         ~10.4 Gbit/s
+#   large     3 (9 nodes)   cx2.48x96   9         ~31 Gbit/s
+#
+# A profile sets ROKSBNKCTL_WORKERS_PER_ZONE / ROKSBNKCTL_WORKER_FLAVOR /
+# ROKSBNKCTL_TMM_REPLICAS (and ROKSBNKCTL_CNEINSTANCE_SIZE=Tiny) in bnk-env;
+# anything you put under `env:` still wins. With `cluster.create: false` the
+# node keys describe the cluster you register; only TMM_REPLICAS is applied.
+# `custom` sets nothing — you supply the env keys yourself.
+# ---------------------------------------------------------------------------
+sizing:
+  profile: custom              # baseline | small | medium | large | custom
+  deploymentSize: Tiny         # do not change on ROKS (see above)
+  allowNonTinyDeploymentSize: false   # the chart refuses any other value on line 2.4 unless this is true
+
 runner:
   image: ghcr.io/jgruberf5/roksbnkctl-tools-runner
   tag: v1.54.0

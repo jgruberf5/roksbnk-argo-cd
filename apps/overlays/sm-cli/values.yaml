@@ -12,6 +12,8 @@ namespace: bnk-sm-cli
 lifecycle: up
 topology: hub
 line: "2.4"
+sizing:
+  profile: small               # sm-cli IS the Small cluster: 6× bx2.8x32 (2/zone), 3 TMM pods, deploymentSize Tiny
 runner:
   tag: v1.54.0
   runAsUser: 1000                    # k3s, not OpenShift — pin the runner's uid
@@ -42,8 +44,6 @@ env:
   ROKSBNKCTL_COS_INSTANCE: bnk-supply-chain
   ROKSBNKCTL_COS_BUCKET: bnk-artifacts-0b5a00334eaf
   ROKSBNKCTL_COS_REGION: us-south
-  ROKSBNKCTL_CNEINSTANCE_SIZE: Tiny
-  ROKSBNKCTL_TMM_REPLICAS: "3"
   ROKSBNKCTL_GENERIC_HOST: ""        # explicit: no mirror
 timeouts:
   init: 600

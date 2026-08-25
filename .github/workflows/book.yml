@@ -1,0 +1,56 @@
+name: Book
+
+# Builds the mdBook under book/ and publishes it to GitHub Pages
+# (https://jgruberf5.github.io/roksbnk-argo-cd/) on every push to main that
+# touches the book. Pull requests only build, to catch broken markdown.
+on:
+  push:
+    branches: [main]
+    paths: ['book/**', '.github/workflows/book.yml']
+  pull_request:
+    paths: ['book/**', '.github/workflows/book.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: 'latest'
+      - name: Install mdbook-mermaid
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: mdbook-mermaid
+      - name: Build
+        run: mdbook build book/
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: book/book
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

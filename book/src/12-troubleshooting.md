@@ -1,0 +1,90 @@
+# Troubleshooting
+
+The design puts every failure in one of two places: a hook Job's logs, and the
+`bnk-status` ConfigMap's `message`. Start with the Application's health
+message (hover the heart, or open `bnk-status`), then open the Job it names.
+
+```bash
+kubectl -n bnk-<ws> get configmap bnk-status -o jsonpath='{.data.message}{"\n"}'
+kubectl -n bnk-<ws> get jobs --sort-by=.metadata.creationTimestamp
+kubectl -n bnk-<ws> logs job/<the failed one> --all-containers
+```
+
+## The sync failed before bnk-up
+
+The Application is **Degraded**, `bnk-syncfail` ran, and `bnk-up` is not in the
+tree. The message names the hook:
+
+| Message | Cause | Fix |
+|---|---|---|
+| `sync failed (hooks: bnk-init)` and the log ends in `✗ ibm cloud auth … Provided API key could not be found` | The key in `bnk-secrets` is wrong — most often a **trailing newline** from a here-string | Recreate the Secret with `printf '%s' "$KEY" \| kubectl create secret … --from-file=IBMCLOUD_API_KEY=/dev/stdin` |
+| `bnk-init`: `ibmcloud.region is required` | `ROKSBNKCTL_REGION`, `_RESOURCE_GROUP` or `_PREFIX` missing from the overlay's `env` | add them |
+| `bnk-cluster`: cluster not found | `cluster.name` wrong, or the key's account/region differ | check `ibmcloud ks clusters` with the same key |
+| `preflight: a registry mirror is configured … but there is no record of it` | `registry.mode: none` yet a `ROKSBNKCTL_REGISTRY_TARGET` / `_GENERIC_HOST` reached the env | remove them, or set `registry.mode: adopt` |
+| `preflight: registry mirror incomplete: N artifacts missing` | the mirror is short of images | run `registry replicate` (or fix the mirror) and sync |
+| `preflight: license_mode=f5licenseproxy but no FLP hand-off` | FLP mode without `ROKSBNKCTL_FLP_EXTERNAL_URL` + `_ROOT_CA_B64` | add the hand-off Secret via `runner.extraEnvFrom` |
+| `preflight: BNK line change 2.3 -> 2.4 is refused` | the manifest version crosses lines on an applied workspace | `lifecycle: down`, sync, then change it |
+| `Job was active longer than specified deadline` on `bnk-init` and nothing else ran | the hook could not start — pod events show a missing ServiceAccount or PVC | the chart's waves prevent this; check that nothing renamed `storage.claimName` or `serviceAccount.name` between syncs |
+
+This is what a gate failure looks like in the UI (from the kind verification
+run, where the mirror was deliberately left incomplete):
+
+```text
+GROUP  KIND       NAME           STATUS     HEALTH   HOOK      MESSAGE
+batch  Job        bnk-init       Succeeded  Synced   Sync      Reached expected number of succeeded pods
+batch  Job        bnk-cluster    Succeeded  Synced   Sync      Reached expected number of succeeded pods
+batch  Job        bnk-registry   Succeeded  Synced   Sync      Reached expected number of succeeded pods
+batch  Job        bnk-preflight  Failed     Synced   Sync      Job has reached the specified backoff limit
+batch  Job        bnk-syncfail   Succeeded  Synced   SyncFail  Reached expected number of succeeded pods
+       ConfigMap  bnk-status     Synced     Degraded           preflight: registry mirror incomplete: 3 artifacts missing
+```
+
+## bnk-up failed
+
+The message reads `bnk up exited with status 1 — see job/bnk-up logs`. Search
+the log from the end:
+
+- **`terraform apply failed after 5 attempts`** — roksbnkctl already retried
+  transient errors (webhook not ready, connection refused). The line above it
+  is the real error.
+- **`cnecontroller_ready` / `license_active` timed out** — the F5 controller
+  never reported Available, or the licence never went Active. Check the pods in
+  `f5-bnk`/`f5-utils` on the cluster (image pulls from FAR are the usual cause
+  on a first install; the JWT is the usual cause for the licence).
+- **`registry CA … unreachable from node`** — the registry-CA DaemonSet could
+  not reach the mirror from every node: a Transit Gateway or security-group
+  problem, not a BNK one.
+- **A 403 from GCP naming a project** — the FAR pull key in COS is the wrong
+  one for the manifest version (GA key vs EA key).
+
+Fix the cause and **Sync** again: the apply is idempotent and continues from
+the Terraform state on the PVC.
+
+## Argo CD says OutOfSync right after a successful sync
+
+Expected once: the hooks patched `bnk-status`, and Argo CD compares it with
+the rendered placeholder. The Application's `ignoreDifferences` on that
+ConfigMap's `/data` (plus `RespectIgnoreDifferences=true`) hides it. If you
+created the Application by hand, make sure both are present.
+
+## The PVC stays Pending and the sync never starts
+
+The storage class binds WaitForFirstConsumer and the claim is in a wave of its
+own. The chart puts the claim in wave −4 with `bnk-init`; check nothing
+overrode `argocd.argoproj.io/sync-wave` on it.
+
+## Deleting the Application hangs
+
+The PreDelete hook is running `bnk down` — give it the time a destroy needs
+(the `down` timeout). If it fails, the Application stays with a deletion
+timestamp; look at `bnk-predelete`'s pod logs while they exist, fix the cause
+(usually a stuck finalizer on an F5 CR) and delete again. As a last resort
+remove the finalizer from the Application — the resources will be orphaned,
+and `bnk down` must be run another way.
+
+## Where roksbnkctl's own troubleshooting starts
+
+Everything above is Argo CD plumbing. The installer's behaviour — guards,
+Terraform modules, the F5 components — is documented in the roksbnkctl book's
+troubleshooting chapter, and every hook log is exactly the output that book
+describes.

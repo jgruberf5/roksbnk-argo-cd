@@ -1,0 +1,41 @@
+# "Medium cluster" — F5 single-NIC sizing guide, as run on ROKS (roksbnkctl book,
+# appendix C): 6 worker nodes (2 per zone) cx2.16x32, 3 TMM pods (1 per zone),
+# ~10.4 Gbit/s L4 ingress. deploymentSize stays Tiny on ROKS.
+workspace: bnk-medium
+namespace: bnk-bnk-medium
+lifecycle: up
+topology: hub
+line: "2.4"
+sizing:
+  profile: medium            # → workers/zone, flavour, tmmReplicas, deploymentSize=Tiny (see values.yaml)
+runner:
+  tag: v1.54.0
+  runAsUser: 1000
+cluster:
+  create: true
+  name: bnk-medium
+registry:
+  mode: none
+storage:
+  storageClassName: local-path
+secrets:
+  mode: existing
+teardown:
+  cluster: true
+env:
+  ROKSBNKCTL_REGION: us-east
+  ROKSBNKCTL_RESOURCE_GROUP: default
+  ROKSBNKCTL_PREFIX: bnk-medium
+  ROKSBNKCTL_OPENSHIFT_VERSION: "4.21"
+  ROKSBNKCTL_CLUSTER_VPC_CIDR: 10.253.0.0/16
+  ROKSBNKCTL_TRANSIT_GATEWAY_NAME: bnkci-testing
+  ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-EA
+  ROKSBNKCTL_FAR_AUTH_FILE: non-ga-prod-pull-key.tgz
+  ROKSBNKCTL_SUBSCRIPTION_JWT_FILE: subscription.jwt
+  ROKSBNKCTL_COS_INSTANCE: bnk-supply-chain
+  ROKSBNKCTL_COS_BUCKET: bnk-artifacts-0b5a00334eaf
+  ROKSBNKCTL_COS_REGION: us-south
+timeouts:
+  cluster: 7200
+  apply: 7200
+  down: 7200

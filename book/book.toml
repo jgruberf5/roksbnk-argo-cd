@@ -1,0 +1,24 @@
+[book]
+title = "BIG-IP Next for Kubernetes on ROKS with Argo CD"
+authors = ["roksbnk-argo-cd maintainers"]
+description = "A step-by-step guide to installing, sizing, verifying and uninstalling F5 BIG-IP Next for Kubernetes on IBM Cloud ROKS using only Argo CD."
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/jgruberf5/roksbnk-argo-cd"
+edit-url-template = "https://github.com/jgruberf5/roksbnk-argo-cd/edit/main/book/{path}"
+site-url = "/roksbnk-argo-cd/"
+default-theme = "rust"
+preferred-dark-theme = "navy"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+
+[output.html.search]
+enable = true
+
+[output.html.fold]
+enable = true
+level = 1
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"

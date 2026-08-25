@@ -1,0 +1,46 @@
+# "Small cluster" — F5 single-NIC sizing guide, as run on ROKS (roksbnkctl book,
+# appendix C): 6 worker nodes (2 per zone) bx2.8x32, 3 TMM pods (1 per zone),
+# ~7.8 Gbit/s L4 ingress. deploymentSize stays Tiny on ROKS — capacity comes from
+# tmmReplicas and node size, never from a larger BNK profile.
+#
+# hub topology: `cluster.create: true` builds the cluster from the hook Job
+# (cluster up), so this overlay is the whole thing — VPC, ROKS, BNK. Set
+# `cluster.create: false` + `cluster.name` to install onto an existing cluster.
+workspace: bnk-small
+namespace: bnk-bnk-small
+lifecycle: up
+topology: hub
+line: "2.4"
+sizing:
+  profile: small            # → workers/zone, flavour, tmmReplicas, deploymentSize=Tiny (see values.yaml)
+runner:
+  tag: v1.54.0
+  runAsUser: 1000
+cluster:
+  create: true
+  name: bnk-small
+registry:
+  mode: none
+storage:
+  storageClassName: local-path
+secrets:
+  mode: existing
+teardown:
+  cluster: true                      # deleting the Application also removes the cluster it built
+env:
+  ROKSBNKCTL_REGION: us-east
+  ROKSBNKCTL_RESOURCE_GROUP: default
+  ROKSBNKCTL_PREFIX: bnk-small
+  ROKSBNKCTL_OPENSHIFT_VERSION: "4.21"
+  ROKSBNKCTL_CLUSTER_VPC_CIDR: 10.252.0.0/16   # must not overlap any VPC on the transit gateway
+  ROKSBNKCTL_TRANSIT_GATEWAY_NAME: bnkci-testing
+  ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-EA
+  ROKSBNKCTL_FAR_AUTH_FILE: non-ga-prod-pull-key.tgz
+  ROKSBNKCTL_SUBSCRIPTION_JWT_FILE: subscription.jwt
+  ROKSBNKCTL_COS_INSTANCE: bnk-supply-chain
+  ROKSBNKCTL_COS_BUCKET: bnk-artifacts-0b5a00334eaf
+  ROKSBNKCTL_COS_REGION: us-south
+timeouts:
+  cluster: 7200
+  apply: 7200
+  down: 7200

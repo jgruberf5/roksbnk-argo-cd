@@ -1,6 +1,28 @@
 # Every non-secret roksbnkctl setting, as the ROKSBNKCTL_* environment the
 # runner rebuilds its workspace from (`init --non-interactive --override-from-env`).
-# Keys derived from chart values are merged first; anything in .Values.env wins.
+#
+# Precedence (later wins): sizing profile → chart-derived keys → .Values.env.
+{{- /* ---- sizing profiles (F5 single-NIC sizing guide, verified on ROKS by roksbnkctl, appendix C) ---- */ -}}
+{{- $profiles := dict
+  "baseline" (dict "ROKSBNKCTL_WORKERS_PER_ZONE" "1" "ROKSBNKCTL_WORKER_FLAVOR" "bx2.16x64" "ROKSBNKCTL_TMM_REPLICAS" "1")
+  "small"    (dict "ROKSBNKCTL_WORKERS_PER_ZONE" "2" "ROKSBNKCTL_WORKER_FLAVOR" "bx2.8x32"  "ROKSBNKCTL_TMM_REPLICAS" "3")
+  "medium"   (dict "ROKSBNKCTL_WORKERS_PER_ZONE" "2" "ROKSBNKCTL_WORKER_FLAVOR" "cx2.16x32" "ROKSBNKCTL_TMM_REPLICAS" "3")
+  "large"    (dict "ROKSBNKCTL_WORKERS_PER_ZONE" "3" "ROKSBNKCTL_WORKER_FLAVOR" "cx2.48x96" "ROKSBNKCTL_TMM_REPLICAS" "9")
+-}}
+{{- $profile := .Values.sizing.profile | default "custom" }}
+{{- if and (ne $profile "custom") (not (hasKey $profiles $profile)) }}
+{{- fail (printf "sizing.profile must be one of baseline|small|medium|large|custom, got %q" $profile) }}
+{{- end }}
+{{- $sized := dict }}
+{{- if ne $profile "custom" }}
+{{- $sized = deepCopy (get $profiles $profile) }}
+{{- end }}
+{{- /* deploymentSize: Tiny is the only profile that runs on ROKS on the 2.4 line */ -}}
+{{- $_ := set $sized "ROKSBNKCTL_CNEINSTANCE_SIZE" .Values.sizing.deploymentSize }}
+{{- $requested := (index .Values.env "ROKSBNKCTL_CNEINSTANCE_SIZE") | default .Values.sizing.deploymentSize | toString }}
+{{- if and (eq (toString .Values.line) "2.4") (ne $requested "Tiny") (not .Values.sizing.allowNonTinyDeploymentSize) }}
+{{- fail (printf "ROKSBNKCTL_CNEINSTANCE_SIZE=%q: on ROKS the BNK 2.4 deploymentSize must stay Tiny — every larger profile requests hugepages that ROKS workers cannot provide and the install fails silently. Choose capacity with sizing.profile (small|medium|large) instead, or set sizing.allowNonTinyDeploymentSize=true if you really know better." $requested) }}
+{{- end }}
 {{- $derived := dict
   "ROKSBNKCTL_CLUSTER_CREATE" (ternary "true" "false" .Values.cluster.create)
   "ROKSBNKCTL_CLUSTER_NAME" .Values.cluster.name
@@ -9,7 +31,7 @@
 {{- if ne .Values.registry.mode "none" }}
 {{- $_ := set $derived "ROKSBNKCTL_REGISTRY_TARGET" .Values.registry.target }}
 {{- end }}
-{{- $env := mergeOverwrite (dict) $derived .Values.env }}
+{{- $env := mergeOverwrite (dict) $sized $derived .Values.env }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -17,6 +39,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     {{- include "bnk.labels" . | nindent 4 }}
+    roksbnkctl.io/sizing-profile: {{ $profile | quote }}
   annotations:
     argocd.argoproj.io/sync-wave: "-10"
 data:

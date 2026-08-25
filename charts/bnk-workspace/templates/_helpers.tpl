@@ -91,6 +91,10 @@ env:
     value: /work/.roksbnkctl
   - name: HOME
     value: /home/runner
+  # HOME is per-pod; the admin kubeconfig `kubeconfig --download` fetches must
+  # land on the PVC so later hooks (status probe, cwc-guard) can use it.
+  - name: KUBECONFIG
+    value: /work/.roksbnkctl/.kube/config
   - name: WS
     value: {{ .Values.workspace | quote }}
   {{- range $k, $v := .Values.runner.env }}

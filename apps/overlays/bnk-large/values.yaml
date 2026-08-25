@@ -1,0 +1,43 @@
+# "Large cluster" — F5 single-NIC sizing guide, as run on ROKS (roksbnkctl book,
+# appendix C): 9 worker nodes (3 per zone) cx2.48x96, 9 TMM pods (3 per zone,
+# anti-affinity + zone spread), ~31 Gbit/s L4 ingress. Note it runs the same
+# Tiny deploymentSize: the Large cluster's capacity is nine TMMs on nine big
+# nodes, not a larger BNK profile (which cannot run on ROKS at all).
+workspace: bnk-large
+namespace: bnk-bnk-large
+lifecycle: up
+topology: hub
+line: "2.4"
+sizing:
+  profile: large            # → workers/zone, flavour, tmmReplicas, deploymentSize=Tiny (see values.yaml)
+runner:
+  tag: v1.54.0
+  runAsUser: 1000
+cluster:
+  create: true
+  name: bnk-large
+registry:
+  mode: none
+storage:
+  storageClassName: local-path
+secrets:
+  mode: existing
+teardown:
+  cluster: true
+env:
+  ROKSBNKCTL_REGION: us-east
+  ROKSBNKCTL_RESOURCE_GROUP: default
+  ROKSBNKCTL_PREFIX: bnk-large
+  ROKSBNKCTL_OPENSHIFT_VERSION: "4.21"
+  ROKSBNKCTL_CLUSTER_VPC_CIDR: 10.254.0.0/16
+  ROKSBNKCTL_TRANSIT_GATEWAY_NAME: bnkci-testing
+  ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-EA
+  ROKSBNKCTL_FAR_AUTH_FILE: non-ga-prod-pull-key.tgz
+  ROKSBNKCTL_SUBSCRIPTION_JWT_FILE: subscription.jwt
+  ROKSBNKCTL_COS_INSTANCE: bnk-supply-chain
+  ROKSBNKCTL_COS_BUCKET: bnk-artifacts-0b5a00334eaf
+  ROKSBNKCTL_COS_REGION: us-south
+timeouts:
+  cluster: 7200
+  apply: 9000
+  down: 7200
