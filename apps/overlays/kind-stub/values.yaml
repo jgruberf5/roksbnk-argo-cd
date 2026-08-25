@@ -1,7 +1,7 @@
 # Local verification on kind with the stub runner (hack/stub-runner).
 workspace: kindstub
 namespace: bnk-kindstub
-lifecycle: down
+lifecycle: up
 line: "2.4"
 runner:
   image: roksbnkctl-stub
@@ -36,6 +36,7 @@ env:
   STUB_APPLY_SECONDS: "20"
   STUB_DOWN_SECONDS: "8"
   STUB_MIRROR_MISSING: "0"
+  STUB_FAIL_APPLY: "helm_release.flo: timed out waiting for f5-lifecycle-operator rollout"
 timeouts:
   init: 120
   cluster: 300
