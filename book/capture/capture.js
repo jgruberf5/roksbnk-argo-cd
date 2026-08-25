@@ -13,6 +13,8 @@
 //   settings-repos        Settings → Repositories (connection status)
 //   settings-projects     Settings → Projects
 //   delete-dialog         the Delete dialog over the Application
+//   details-sources       Details → Sources (multi-source app: the Helm values / parameter overrides live here)
+//   details-sources:<sfx> same, saved as details-sources-<sfx>.png
 //
 // WHY THIS LIVES WITH THE BOOK: the screenshots ARE the guide. The thing that
 // produces them is versioned next to it so the next person can refresh them.
@@ -135,6 +137,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       }
       else if (kind === 'settings-repos') { await goto(`${base}/settings/repos`); await shot('settings-repositories'); }
       else if (kind === 'settings-projects') { await goto(`${base}/settings/projects`); await shot('settings-projects'); }
+      else if (kind === 'details-sources' || kind === 'details-params') {
+        await goto(appUrl());
+        await clickText('button', 'details'); await sleep(1500);
+        // the sliding panel's tabs are anchors/spans; find "Parameters" by text
+        await page.evaluate(() => { const t = Array.from(document.querySelectorAll('a,span,div')).find(e => ['Sources','Parameters'].includes((e.textContent || '').trim()) && e.children.length === 0); if (t) t.click(); });
+        await sleep(2000);
+        // expand the first (chart) source so its Helm parameters are visible
+        await page.evaluate(() => { const t = Array.from(document.querySelectorAll('a,span,div,i')).find(e => /charts\/bnk-workspace/.test(e.textContent || '') && e.children.length <= 2); if (t) t.click(); });
+        await sleep(1500);
+        await shot(rest[0] ? `details-sources-${rest[0]}` : 'details-sources');
+        await page.keyboard.press('Escape');
+      }
       else if (kind === 'delete-dialog') {
         await goto(appUrl());
         await clickText('button', 'delete'); await sleep(1500);

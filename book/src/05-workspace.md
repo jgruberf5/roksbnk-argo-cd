@@ -172,5 +172,8 @@ kubectl apply -f apps/sm-cli-application.yaml
 For a fleet, add the workspace to `apps/applicationset-workspaces.yaml`
 instead; the ApplicationSet renders the same Application per entry.
 
-The Application appears **OutOfSync / Missing** — Argo CD has rendered the
-chart but nothing is applied yet. That is the starting line for Step 3.
+The Application appears **OutOfSync** — Argo CD has rendered the chart and
+listed every resource and hook it would create, but nothing is applied yet.
+That is the starting line for Step 3.
+
+![The Application before its first sync](images/03-app.png)

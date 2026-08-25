@@ -62,8 +62,12 @@ workspace` — and the sync stops before `bnk-up` exists.
 ## bnk-up: plan, apply, gates
 
 This is the log to read. It is long — 3,500 lines for `sm-cli` — because it is
-Terraform's own output plus roksbnkctl's guards and post-apply steps, and the
-UI streams it live while the Job runs.
+Terraform's own output plus roksbnkctl's guards and post-apply steps. The UI
+streams it live while the Job runs (the **follow** toggle is on by default):
+
+![bnk-up logs while the apply is running](images/logs-bnk-up-running.png)
+
+…and keeps it after the Job completes, scrolled here to the end:
 
 ![bnk-up logs, complete](images/logs-bnk-up-complete.png)
 

@@ -27,11 +27,23 @@ lifecycle: down
 git commit -am "sm-cli: tear BNK down" && git push
 ```
 
-…or, entirely from the UI, override the Helm value on the Application:
-**Applications → bnk-sm-cli → Details → Parameters → Edit**, set
-`lifecycle` to `down`, **Save**. (Argo CD stores the override in the
-Application spec; the next Git change to the overlay will not undo it until
-you remove the override.)
+…or, entirely from the UI, override the Helm value on the Application. This
+is a *multi-source* Application (the chart and the values overlay are two
+sources), so the Helm values live under **Details → Sources**: open
+**Applications → bnk-sm-cli → Details**, choose the **Sources** tab, expand
+the `charts/bnk-workspace` source, click **Edit** next to its parameters, add
+`lifecycle` = `down`, **Save**. Argo CD stores the override in the Application
+spec (`spec.sources[0].helm.parameters`); a later Git change to the overlay
+will not undo it until you remove the override.
+
+![Details → Sources, where a chart value can be overridden from the UI](images/details-sources-down.png)
+
+The same override from the CLI, which is what this book's captures used:
+
+```bash
+kubectl -n argocd patch application bnk-sm-cli --type json \
+  -p '[{"op":"add","path":"/spec/sources/0/helm/parameters","value":[{"name":"lifecycle","value":"down"}]}]'
+```
 
 Either way the Application shows **OutOfSync** — the desired state now
 contains `bnk-down`:

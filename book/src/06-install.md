@@ -50,6 +50,11 @@ always:
 5. **`bnk-status`** (PostSync) — captures `bnk status --json` into the
    `bnk-status` ConfigMap.
 
+While `bnk-up` runs, the tree shows the gates completed and the apply in
+progress — the Application is *Progressing*, the operation *Syncing*:
+
+![The tree while bnk-up is running](images/app-syncing.png)
+
 If any gate fails, the sync stops there: `bnk-up` is never created, the
 `bnk-syncfail` hook records which Job failed and why, and the Application turns
 **Degraded** with that message. [Troubleshooting](12-troubleshooting.md) shows
