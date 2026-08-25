@@ -1,0 +1,54 @@
+# sm-cli — existing ROKS 4.21 cluster in us-east (6× bx2.8x32, 2 per zone,
+# public + private service endpoints), driven from the us-south Argo CD hub VSI
+# over the Transit Gateways. BNK 2.4 "small cluster" profile per the roksbnkctl
+# single-NIC sizing appendix: deploymentSize stays Tiny on ROKS (anything larger
+# requests hugepages ROKS cannot provide), capacity comes from tmmReplicas + nodes.
+#
+# The cluster's own VPC prefixes (10.241.0.0/18 ×3) collide with bnk-svc-vpc, which
+# is already on bnkci-testing, so the cluster stays on sm-cli-tgw; the hub VPC is
+# attached to BOTH gateways. roksbnkctl reaches the cluster's public endpoint.
+workspace: sm-cli
+namespace: bnk-sm-cli
+lifecycle: up
+topology: hub
+line: "2.4"
+runner:
+  tag: v1.54.0
+  runAsUser: 1000                    # k3s, not OpenShift — pin the runner's uid
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 3Gi}
+cluster:
+  create: false
+  name: sm-cli
+  registryCosName: sm-cli-registry-cos
+registry:
+  mode: none                         # connected: pull straight from FAR
+storage:
+  size: 8Gi
+  storageClassName: local-path       # k3s default on the hub VSI
+secrets:
+  mode: existing                     # bnk-secrets created by hack/vsi/apply-hub.sh
+env:
+  ROKSBNKCTL_REGION: us-east
+  ROKSBNKCTL_RESOURCE_GROUP: default
+  ROKSBNKCTL_PREFIX: sm-cli
+  ROKSBNKCTL_OPENSHIFT_VERSION: "4.21"
+  ROKSBNKCTL_CLUSTER_NETWORK_MODE: single-nic
+  ROKSBNKCTL_TRANSIT_GATEWAY_NAME: sm-cli-tgw
+  ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-EA
+  ROKSBNKCTL_FAR_AUTH_FILE: non-ga-prod-pull-key.tgz
+  ROKSBNKCTL_SUBSCRIPTION_JWT_FILE: subscription.jwt
+  ROKSBNKCTL_COS_INSTANCE: bnk-supply-chain
+  ROKSBNKCTL_COS_BUCKET: bnk-artifacts-0b5a00334eaf
+  ROKSBNKCTL_COS_REGION: us-south
+  ROKSBNKCTL_CNEINSTANCE_SIZE: Tiny
+  ROKSBNKCTL_TMM_REPLICAS: "3"
+  ROKSBNKCTL_GENERIC_HOST: ""        # explicit: no mirror
+timeouts:
+  init: 600
+  cluster: 1800
+  preflight: 900
+  apply: 7200
+  status: 300
+  down: 5400

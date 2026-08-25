@@ -1,0 +1,47 @@
+#cloud-config
+# =============================================================================
+# Argo CD hub VSI — single-node k3s + upstream Argo CD.
+#
+# The GitOps hub for BNK workspaces: Argo CD syncs the bnk-workspace chart from
+# Git and runs the roksbnkctl runner as hook Jobs on this node. The VSI sits in
+# its own VPC, attached to the Transit Gateway(s), with a public gateway for
+# egress (IBM Cloud APIs, FAR, ghcr) and a floating IP for the Argo CD UI.
+#
+# Rendered by envsubst. Substituted vars:
+#   ${ARGOCD_VERSION}   upstream Argo CD manifest + CLI tag (e.g. 3.5.1)
+#   ${K3S_CHANNEL}      k3s install channel (e.g. stable)
+#   ${ARGOCD_NODEPORT}  NodePort for the Argo CD API/UI (https)
+# =============================================================================
+package_update: true
+packages: [curl, jq, git]
+
+write_files:
+  - path: /usr/local/bin/wait-argocd
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+      for i in $(seq 1 120); do
+        kubectl -n argocd rollout status deploy/argocd-server --timeout=10s >/dev/null 2>&1 && \
+        kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=10s >/dev/null 2>&1 && \
+        kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=10s >/dev/null 2>&1 && {
+          echo "argo cd ready"; exit 0; }
+        sleep 5
+      done
+      echo "argo cd did not become ready" >&2; exit 1
+
+runcmd:
+  # --- single-node k3s ------------------------------------------------------
+  - [ bash, -c, "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=${K3S_CHANNEL} INSTALL_K3S_EXEC='--write-kubeconfig-mode 644' sh -" ]
+  - [ bash, -c, "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml; until kubectl get nodes >/dev/null 2>&1; do sleep 3; done" ]
+  # --- Argo CD (pinned upstream manifest; server-side apply for the large CRDs)
+  - [ bash, -c, "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml; kubectl create namespace argocd" ]
+  - [ bash, -c, "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml; kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/v${ARGOCD_VERSION}/manifests/install.yaml" ]
+  # --- expose the API/UI on the floating IP via NodePort (TLS, self-signed) --
+  - [ bash, -c, "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml; kubectl -n argocd patch svc argocd-server --type merge -p '{\"spec\":{\"type\":\"NodePort\",\"ports\":[{\"name\":\"http\",\"port\":80,\"targetPort\":8080,\"nodePort\":30080},{\"name\":\"https\",\"port\":443,\"targetPort\":8080,\"nodePort\":${ARGOCD_NODEPORT}}]}}'" ]
+  # --- argocd CLI, matched to the server ------------------------------------
+  - [ bash, -c, "curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/download/v${ARGOCD_VERSION}/argocd-linux-amd64 && chmod 0755 /usr/local/bin/argocd" ]
+  # kubeconfig for the ubuntu user, so ssh sessions need no sudo
+  - [ bash, -c, "mkdir -p /home/ubuntu/.kube && cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config && chown -R ubuntu:ubuntu /home/ubuntu/.kube && echo 'export KUBECONFIG=/home/ubuntu/.kube/config' >> /home/ubuntu/.bashrc" ]
+  - [ bash, -c, "/usr/local/bin/wait-argocd || true" ]
+  - [ bash, -c, "touch /var/lib/cloud/argocd-hub-ready" ]

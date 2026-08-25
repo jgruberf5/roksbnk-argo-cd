@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 CHART := charts/bnk-workspace
-OVERLAYS := kind-stub bnkconn bnkdisco
+OVERLAYS := kind-stub bnkconn bnkdisco sm-cli
 RENDER := .rendered
 REPO_MOUNT ?= $(HOME)/.cache/roksbnk-argo-cd/kind-repo
 K8S_VERSION ?= 1.31.0

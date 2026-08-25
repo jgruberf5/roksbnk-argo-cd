@@ -1,0 +1,35 @@
+# sm-cli on the Argo CD hub. Manual sync — syncing IS the "Apply this plan?" step.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bnk-sm-cli
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # delete → PreDelete hook runs bnk down first
+spec:
+  project: bnk
+  sources:
+    - repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
+      targetRevision: main
+      path: charts/bnk-workspace
+      helm:
+        releaseName: bnk-sm-cli
+        valueFiles:
+          - $values/apps/overlays/sm-cli/values.yaml
+    - repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bnk-sm-cli
+  ignoreDifferences:
+    - kind: ConfigMap
+      name: bnk-status
+      jsonPointers: ["/data"]
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - PruneLast=true
+    retry:
+      limit: 0
