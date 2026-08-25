@@ -1,0 +1,37 @@
+# Local verification Application (kind + stub runner). Manual sync: syncing IS
+# the "Apply this plan?" confirmation.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bnk-kindstub
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # cascade delete → PreDelete hook (bnk down) runs
+spec:
+  project: bnk
+  sources:
+    - repoURL: http://git.git.svc:8080/roksbnk-argo-cd.git
+      targetRevision: HEAD
+      path: charts/bnk-workspace
+      helm:
+        releaseName: bnk-kindstub
+        valueFiles:
+          - $values/apps/overlays/kind-stub/values.yaml
+    - repoURL: http://git.git.svc:8080/roksbnk-argo-cd.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bnk-kindstub
+  ignoreDifferences:
+    # the hook Jobs own the status ConfigMap's data
+    - kind: ConfigMap
+      name: bnk-status
+      jsonPointers: ["/data"]
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - PruneLast=true
+    retry:
+      limit: 0        # never re-run bnk up automatically on failure

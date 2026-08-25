@@ -1,0 +1,6 @@
+{{- $script := printf `
+roksbnkctl init -w "$WS" --non-interactive --override-from-env
+roksbnkctl version
+%s
+` (ternary `roksbnkctl -w "$WS" doctor` `echo "doctor: skipped (preflight.doctor=false)"` .Values.preflight.doctor) -}}
+{{ include "bnk.hookJob" (dict "root" . "name" "bnk-init" "hook" "PreSync" "wave" "-4" "deadline" .Values.timeouts.init "script" $script "cwc" false) }}

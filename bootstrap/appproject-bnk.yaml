@@ -1,0 +1,45 @@
+# AppProject for BNK workspaces. Apply into the Argo CD namespace:
+#   upstream:         kubectl apply -n argocd -f bootstrap/appproject-bnk.yaml
+#   OpenShift GitOps: kubectl apply -n openshift-gitops -f bootstrap/appproject-bnk.yaml
+#
+# The hook Jobs carry the IBM API key and mint a ROKS admin kubeconfig
+# themselves; Argo CD's own permissions stay narrow: namespaced resources in
+# the bnk-* namespaces plus the Namespace kind. Nothing cluster-scoped beyond that.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: bnk
+spec:
+  description: F5 BIG-IP Next for Kubernetes on ROKS, driven by roksbnkctl hook Jobs
+  sourceRepos:
+    - "*"                      # tighten to the customer's Git host
+  destinations:
+    - server: "*"
+      namespace: "bnk-*"
+    - server: "*"
+      namespace: "argocd"      # ApplicationSet-generated Applications live here (upstream)
+    - server: "*"
+      namespace: "openshift-gitops"
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  # The "Apply this plan?" confirmation becomes a manual sync by a role that
+  # holds `sync` — and an optional maintenance window.
+  roles:
+    - name: bnk-operator
+      description: may trigger bnk up/down by syncing, may not edit Applications
+      policies:
+        - p, proj:bnk:bnk-operator, applications, get, bnk/*, allow
+        - p, proj:bnk:bnk-operator, applications, sync, bnk/*, allow
+        - p, proj:bnk:bnk-operator, logs, get, bnk/*, allow
+      groups:
+        - bnk-operators
+  # syncWindows:
+  #   - kind: allow
+  #     schedule: "0 2 * * 1-5"
+  #     duration: 4h
+  #     manualSync: true
+  #     applications: ["*"]

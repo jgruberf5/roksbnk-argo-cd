@@ -1,0 +1,27 @@
+# Every non-secret roksbnkctl setting, as the ROKSBNKCTL_* environment the
+# runner rebuilds its workspace from (`init --non-interactive --override-from-env`).
+# Keys derived from chart values are merged first; anything in .Values.env wins.
+{{- $derived := dict
+  "ROKSBNKCTL_CLUSTER_CREATE" (ternary "true" "false" .Values.cluster.create)
+  "ROKSBNKCTL_CLUSTER_NAME" .Values.cluster.name
+  "REGISTRY_COS_NAME" .Values.cluster.registryCosName
+-}}
+{{- if ne .Values.registry.mode "none" }}
+{{- $_ := set $derived "ROKSBNKCTL_REGISTRY_TARGET" .Values.registry.target }}
+{{- end }}
+{{- $env := mergeOverwrite (dict) $derived .Values.env }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.env.configMapName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "bnk.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+data:
+  {{- range $k, $v := $env }}
+  {{- if and (ne $k "configMapName") (ne (toString $v) "") }}
+  {{ $k }}: {{ toString $v | quote }}
+  {{- end }}
+  {{- end }}

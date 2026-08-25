@@ -1,0 +1,27 @@
+# In-target topology: Red Hat OpenShift GitOps on the ROKS cluster that receives BNK.
+# After the operator is ready, an Argo CD instance appears in openshift-gitops;
+# apply bootstrap/openshift/argocd-cr.yaml over it to add the bnk-status health check.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-gitops-operator
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-gitops-operator
+  namespace: openshift-gitops-operator
+spec:
+  upgradeStrategy: Default
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: openshift-gitops-operator
+  namespace: openshift-gitops-operator
+spec:
+  channel: latest            # confirm the channel ships Argo CD >= 3.3 if preDelete.enabled=true
+  installPlanApproval: Automatic
+  name: openshift-gitops-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

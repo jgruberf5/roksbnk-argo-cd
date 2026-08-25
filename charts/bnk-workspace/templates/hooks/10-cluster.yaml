@@ -1,0 +1,13 @@
+{{- if eq .Values.lifecycle "up" }}
+{{- $cmd := "" }}
+{{- if .Values.cluster.create }}
+{{- $cmd = `roksbnkctl -w "$WS" cluster up --auto` }}
+{{- else }}
+{{- $cmd = `roksbnkctl -w "$WS" cluster register "${ROKSBNKCTL_CLUSTER_NAME:?ROKSBNKCTL_CLUSTER_NAME (cluster.name) is required to register an existing cluster}" ${REGISTRY_COS_NAME:+--registry-cos-name "$REGISTRY_COS_NAME"}` }}
+{{- end }}
+{{- $script := printf `
+%s
+roksbnkctl -w "$WS" kubeconfig --download
+` $cmd -}}
+{{ include "bnk.hookJob" (dict "root" . "name" "bnk-cluster" "hook" "PreSync" "wave" "-3" "deadline" .Values.timeouts.cluster "script" $script "cwc" false) }}
+{{- end }}

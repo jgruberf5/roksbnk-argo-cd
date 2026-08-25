@@ -1,0 +1,141 @@
+# bnk-workspace — one roksbnkctl workspace driven by Argo CD.
+# Overlays under apps/overlays/<workspace>/values.yaml override these.
+
+workspace: bnk                 # roksbnkctl workspace name (-w)
+namespace: bnk-ci              # namespace the hook Jobs run in (Argo CD destination)
+createNamespace: false         # true renders a Namespace (else rely on CreateNamespace=true)
+
+# up   → Sync hook runs `bnk up --auto`
+# down → Sync hook runs `bnk down --auto` (teardown while keeping the Application;
+#        also the only teardown path on Argo CD < 3.3, which has no PreDelete hook)
+lifecycle: up
+
+# in-target: Argo CD lives on the ROKS cluster that receives BNK (OpenShift GitOps)
+# hub:       Argo CD on a management cluster; roksbnkctl reaches ROKS over the TGW
+topology: in-target
+
+line: "2.4"                    # BNK line; 2.3 enables the cwc-guard container by default
+
+runner:
+  image: ghcr.io/jgruberf5/roksbnkctl-tools-runner
+  tag: v1.54.0
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  env: {}                      # extra plain env on the runner containers
+  extraEnvFrom: []             # e.g. [{secretRef: {name: flp-handoff}}]
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
+  fsGroup: 0                   # runner is uid 1000 / gid 0 (OpenShift arbitrary-uid safe)
+  runAsUser: null              # leave unset on OpenShift (SCC assigns), set 1000 elsewhere
+  nodeSelector: {}
+  tolerations: []
+
+cluster:
+  create: false                # in-target must be false (cluster register); hub may be true (cluster up)
+  name: ""                     # existing ROKS cluster name → ROKSBNKCTL_CLUSTER_NAME
+  registryCosName: ""          # → REGISTRY_COS_NAME for `cluster register --registry-cos-name`
+
+registry:
+  mode: none                   # none | adopt (mirror populated elsewhere) | replicate (pod can reach FAR)
+  target: generic              # icr | generic → ROKSBNKCTL_REGISTRY_TARGET when mode != none
+
+preflight:
+  doctor: true                 # run `roksbnkctl doctor` in the init hook
+  command: ""                  # e.g. `roksbnkctl -w "$WS" bnk preflight` once that verb exists;
+                               # empty = shell replica of the workspace-file guards
+
+cwcGuard:
+  enabled: auto                # auto | true | false — the f5-spk-cwc Multi-Attach workaround (BNK 2.3)
+  # Adapted from scripts/demos/blueprint-workflows-ci-demo/workflows/wf-existing-cluster.yaml.
+  # Runs as a second container in the bnk-up Job; exits when /signal/done appears
+  # (bnk up returned), when the licence goes Active, or after ~27 minutes.
+  script: |
+    NS="${CWC_NAMESPACE:-${ROKSBNKCTL_FLO_UTILS_NAMESPACE:-f5-utils}}"; DEP="${CWC_DEPLOYMENT:-f5-spk-cwc}"
+    K="roksbnkctl -w $WS kubectl"
+    patched=0
+    for _ in $(seq 1 160); do
+      [ -f /signal/done ] && { echo "cwc: bnk up finished — guard done"; exit 0; }
+      if $K -n "$NS" get deploy "$DEP" >/dev/null 2>&1; then
+        if [ "$patched" = 0 ]; then
+          $K -n "$NS" patch deploy "$DEP" --type=merge \
+            -p '{"spec":{"strategy":{"type":"Recreate","rollingUpdate":null}}}' >/dev/null 2>&1 \
+            && { patched=1; echo "cwc: strategy=Recreate applied"; }
+        fi
+        pods="$($K -n "$NS" get pods 2>/dev/null | grep "$DEP" || true)"
+        if [ "$(echo "$pods" | grep -c "$DEP")" -gt 1 ] && echo "$pods" | grep -q ContainerCreating; then
+          echo "cwc: Multi-Attach deadlock — cycling replicas to release the RWO volume"
+          $K -n "$NS" scale deploy "$DEP" --replicas=0 >/dev/null 2>&1
+          for _ in $(seq 1 20); do
+            [ "$($K -n "$NS" get pods 2>/dev/null | grep -c "$DEP")" = 0 ] && break
+            sleep 6
+          done
+          $K -n "$NS" scale deploy "$DEP" --replicas=1 >/dev/null 2>&1
+        fi
+        if [ "$($K -n "$NS" get licenses.k8s.f5net.com bnk-license -o jsonpath='{.status.state}' 2>/dev/null)" = "Active" ]; then
+          echo "cwc: licence Active — guard done"; exit 0
+        fi
+      fi
+      sleep 10
+    done
+    exit 0
+
+storage:
+  claimName: bnk-work
+  size: 8Gi
+  accessMode: ReadWriteOnce
+  storageClassName: ""         # ROKS: ibmc-vpc-block-10iops-tier; kind: standard
+
+serviceAccount:
+  name: bnk-runner
+  annotations: {}
+
+# non-secret roksbnkctl settings → ConfigMap (ROKSBNKCTL_* keys, see
+# roksbnkctl book ch. 07a / internal/config/envoverride.go). Chart-derived keys
+# (CLUSTER_CREATE, CLUSTER_NAME, REGISTRY_TARGET, REGISTRY_COS_NAME) are merged
+# underneath; anything set here wins.
+env:
+  configMapName: bnk-env
+  # ROKSBNKCTL_REGION: us-south
+  # ROKSBNKCTL_RESOURCE_GROUP: default
+  # ROKSBNKCTL_PREFIX: bnk
+  # ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-...
+  # ROKSBNKCTL_COS_INSTANCE / ROKSBNKCTL_COS_BUCKET / ROKSBNKCTL_COS_REGION
+  # ROKSBNKCTL_FAR_AUTH_FILE / ROKSBNKCTL_SUBSCRIPTION_JWT_FILE
+  # ROKSBNKCTL_LICENSE_MODE: f5licenseproxy
+
+secrets:
+  mode: existing               # existing | externalSecret | inline (dev only) | none
+  name: bnk-secrets            # IBMCLOUD_API_KEY, ROKSBNKCTL_GENERIC_PASSWORD, ROKSBNKCTL_BIGIP_PASSWORD, ...
+  externalSecret:
+    refreshInterval: 1h
+    storeRef: {name: ibm-secrets-manager, kind: ClusterSecretStore}
+    data: []
+    # - key: IBMCLOUD_API_KEY
+    #   remoteRef: {key: bnk-ibmcloud-api-key}
+  inline: {}
+
+flpHandoff:
+  writeSecret: false           # grant the runner create/patch on the FLP hand-off Secret
+  secretName: flp-handoff
+
+status:
+  configMapName: bnk-status
+
+hooks:
+  deletePolicy: BeforeHookCreation   # keep the last run's Jobs (incl. failed) until the next sync
+
+preDelete:
+  enabled: true                # Argo CD >= 3.3: deleting the Application runs bnk down first
+
+teardown:
+  cluster: false               # with cluster.create=true (hub): also tgw disconnect + cluster down on delete
+
+timeouts:                      # activeDeadlineSeconds per hook Job
+  init: 600
+  cluster: 7200
+  registry: 7200
+  preflight: 900
+  apply: 7200
+  status: 600
+  down: 5400

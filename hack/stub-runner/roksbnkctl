@@ -1,0 +1,144 @@
+#!/bin/sh
+# Stub roksbnkctl: reproduces the verbs, exit codes and workspace files the
+# Argo CD hooks depend on, without Terraform or IBM Cloud.
+#
+# Knobs (set via the bnk-env ConfigMap):
+#   STUB_APPLY_SECONDS / STUB_DOWN_SECONDS / STUB_CLUSTER_SECONDS  simulated durations
+#   STUB_FAIL_GUARD=<msg>    bnk up fails its preflight guards with <msg> (exit 1)
+#   STUB_FAIL_APPLY=<msg>    bnk up fails during terraform apply with <msg> (exit 1)
+#   STUB_MIRROR_MISSING=<n>  registry adopt/replicate records n missing artifacts
+set -eu
+HOME_DIR=${ROKSBNKCTL_HOME:-/work/.roksbnkctl}
+WS=""
+# strip a global/subcommand `-w <ws>` wherever it appears
+n=$#; i=0
+while [ "$i" -lt "$n" ]; do
+  a=$1; shift
+  case "$a" in
+    -w) WS=$1; shift; i=$((i+2)) ;;
+    --workspace=*) WS=${a#*=}; i=$((i+1)) ;;
+    *) set -- "$@" "$a"; i=$((i+1)) ;;
+  esac
+done
+verb=${1:-}; [ $# -gt 0 ] && shift
+[ -n "$WS" ] || WS=$(cat "$HOME_DIR/current" 2>/dev/null || echo default)
+D="$HOME_DIR/$WS"
+log() { echo "[stub roksbnkctl] $*"; }
+fail() { echo "error: $*" >&2; exit 1; }
+nap() { s=${1:-0}; if [ "$s" -gt 0 ] 2>/dev/null; then log "$2 (${s}s)"; sleep "$s"; fi; }
+json_flag() { for x in "$@"; do [ "$x" = "--json" ] && return 0; done; return 1; }
+deployed() { [ -f "$D/state/terraform.tfstate" ] && echo true || echo false; }
+line() { printf '%s' "${ROKSBNKCTL_MANIFEST_VERSION:-2.4.0-0}" | cut -d. -f1-2; }
+
+case "$verb" in
+  version)
+    echo "roksbnkctl stub (simulates v${STUB_VERSION:-1.54.0}); terraform stub; helm stub" ;;
+
+  init)
+    [ -n "${ROKSBNKCTL_REGION:-}" ] || fail "ibmcloud.region is required (ROKSBNKCTL_REGION)"
+    [ -n "${ROKSBNKCTL_RESOURCE_GROUP:-}" ] || fail "ibmcloud.resource_group is required (ROKSBNKCTL_RESOURCE_GROUP)"
+    [ -n "${ROKSBNKCTL_PREFIX:-}" ] || fail "prefix is required (ROKSBNKCTL_PREFIX)"
+    mkdir -p "$D/state" "$D/state-cluster"
+    { echo "workspace: $WS"; echo "seeded_from_env:"; env | grep '^ROKSBNKCTL_' | grep -v '_B64=' | sort | sed 's/^/  /'; } > "$D/config.yaml"
+    echo "$WS" > "$HOME_DIR/current"
+    log "init: workspace $WS written to $D/config.yaml ($(env | grep -c '^ROKSBNKCTL_') overrides)" ;;
+
+  doctor)
+    [ -n "${IBMCLOUD_API_KEY:-}" ] || fail "IBM Cloud API key not resolvable (set IBMCLOUD_API_KEY)"
+    log "doctor: terraform ok · helm ok · kubectl ok · api key ok · workspace $D ok" ;;
+
+  cluster)
+    sub=${1:-}; [ $# -gt 0 ] && shift
+    case "$sub" in
+      register)
+        name=${1:-}; [ -n "$name" ] || fail "cluster register: cluster name required"
+        mkdir -p "$D"
+        jq -n --arg n "$name" --arg r "${ROKSBNKCTL_REGION:-us-south}" \
+          '{schema_version:2,cluster_name:$n,cluster_id:("stub-"+$n),region:$r,vpc_id:"r006-stub-vpc",network_mode:"public",source:"register"}' > "$D/cluster-outputs.json"
+        log "cluster register: attached $name → $D/cluster-outputs.json" ;;
+      up)
+        nap "${STUB_CLUSTER_SECONDS:-2}" "terraform apply (cluster phase)"
+        mkdir -p "$D/state-cluster"
+        echo '{"resources":[{"type":"ibm_container_vpc_cluster","name":"openshift_cluster"}]}' > "$D/state-cluster/terraform.tfstate"
+        jq -n --arg n "${ROKSBNKCTL_CLUSTER_NAME:-${ROKSBNKCTL_PREFIX:-bnk}-roks}" --arg r "${ROKSBNKCTL_REGION:-us-south}" \
+          '{schema_version:2,cluster_name:$n,cluster_id:("stub-"+$n),region:$r,vpc_id:"r006-stub-vpc",network_mode:"public",source:"create"}' > "$D/cluster-outputs.json"
+        log "cluster up: done" ;;
+      down)
+        [ "$(deployed)" = "false" ] || fail "cluster down refused: BNK state still present (bnk down first)"
+        rm -f "$D/state-cluster/terraform.tfstate" "$D/cluster-outputs.json"; log "cluster down: done" ;;
+      status) echo "{\"phase\":\"cluster\",\"deployed\":$([ -f "$D/cluster-outputs.json" ] && echo true || echo false)}" ;;
+      *) fail "cluster: unknown subcommand '$sub'" ;;
+    esac ;;
+
+  kubeconfig)
+    [ -f "$D/cluster-outputs.json" ] || fail "no cluster-outputs.json — run cluster register/up first"
+    mkdir -p "$D/.kube"; echo "# stub admin kubeconfig for $(jq -r .cluster_name "$D/cluster-outputs.json")" > "$D/.kube/config"
+    log "kubeconfig --download: wrote $D/.kube/config" ;;
+
+  registry)
+    sub=${1:-}; [ $# -gt 0 ] && shift
+    case "$sub" in
+      target) log "registry target: ${ROKSBNKCTL_REGISTRY_TARGET:-generic} @ ${ROKSBNKCTL_GENERIC_HOST:-mirror.example.internal}" ;;
+      bom) log "registry bom: 89 artifacts (56 images, 25 charts, cert-manager ×5, manifest, gateway-api)" ;;
+      adopt|replicate)
+        nap "${STUB_MIRROR_SECONDS:-1}" "registry $sub"
+        jq -n --arg h "${ROKSBNKCTL_GENERIC_HOST:-mirror.example.internal}" --argjson m "${STUB_MIRROR_MISSING:-0}" \
+          '{target:"generic",chart_host:($h+"/bnk-mirror"),image_host:($h+"/bnk-mirror"),registry_host:$h,artifacts:89,missing_count:$m}' > "$D/registry-mirror.json"
+        log "registry $sub: wrote $D/registry-mirror.json (missing_count=${STUB_MIRROR_MISSING:-0})" ;;
+      verify)
+        m=$(jq -r '.missing_count // 0' "$D/registry-mirror.json" 2>/dev/null || echo 99)
+        [ "$m" = "0" ] || fail "registry verify: $m artifacts missing from the mirror"
+        log "registry verify: complete" ;;
+      *) fail "registry: unknown subcommand '$sub'" ;;
+    esac ;;
+
+  bnk)
+    sub=${1:-}; [ $# -gt 0 ] && shift
+    case "$sub" in
+      up)
+        # --- guards, in prepareBNKUp order ---
+        [ -f "$D/config.yaml" ] || fail "workspace $WS is not initialised"
+        [ -f "$D/cluster-outputs.json" ] || fail "no cluster-outputs.json: run cluster up or cluster register first"
+        if [ -n "${ROKSBNKCTL_REGISTRY_TARGET:-}" ]; then
+          [ -f "$D/registry-mirror.json" ] || fail "a registry mirror is configured but there is no record of it — run registry replicate or registry adopt"
+          m=$(jq -r '.missing_count // 0' "$D/registry-mirror.json"); [ "$m" = "0" ] || fail "registry mirror incomplete: $m artifacts missing"
+        fi
+        if [ "${ROKSBNKCTL_LICENSE_MODE:-}" = "f5licenseproxy" ] && [ -z "${ROKSBNKCTL_FLP_EXTERNAL_URL:-}" ] && [ ! -f "$D/flp-outputs.json" ]; then
+          fail "license_mode f5licenseproxy requires an FLP hand-off (flp-outputs.json or ROKSBNKCTL_FLP_EXTERNAL_URL)"
+        fi
+        if [ -f "$D/state/terraform.applied.tfvars" ]; then
+          have=$(sed -n 's/^bnk_line = "\(.*\)"/\1/p' "$D/state/terraform.applied.tfvars")
+          [ "$have" = "$(line)" ] || fail "BNK line change $have -> $(line) refused (guardCreateTimeSettings)"
+        fi
+        [ -z "${STUB_FAIL_GUARD:-}" ] || fail "$STUB_FAIL_GUARD"
+        log "guards ok · terraform plan: $([ "$(deployed)" = true ] && echo 'no changes' || echo '47 to add')"
+        if [ "$(deployed)" = "true" ]; then log "bnk up: already applied, nothing to do"; exit 0; fi
+        nap "${STUB_APPLY_SECONDS:-15}" "terraform apply (cert-manager → flo → cneinstance → license)"
+        [ -z "${STUB_FAIL_APPLY:-}" ] || fail "terraform apply failed after 5 attempts: $STUB_FAIL_APPLY"
+        mkdir -p "$D/state"
+        jq -n --arg l "$(line)" '{resources:[{type:"helm_release",name:"flo"},{type:"kubectl_manifest",name:"cneinstance"},{type:"kubectl_manifest",name:"license"}],outputs:{flo_namespace:{value:"f5-bnk"},flo_utils_namespace:{value:"f5-utils"},bnk_line:{value:$l}}}' > "$D/state/terraform.tfstate"
+        printf 'bnk_line = "%s"\nflo_namespace = "f5-bnk"\n' "$(line)" > "$D/state/terraform.applied.tfvars"
+        log "bnk up: License bnk-license Active · CNEInstance Available · done" ;;
+      down)
+        if [ "$(deployed)" = "false" ]; then log "bnk down: nothing to do (no BNK state in $WS)"; exit 0; fi
+        nap "${STUB_DOWN_SECONDS:-8}" "terraform destroy (license → cneinstance → flo → cert-manager)"
+        rm -f "$D/state/terraform.tfstate"
+        log "bnk down: done (applied-tfvars snapshot kept, as the real CLI does)" ;;
+      status)
+        dep=$(deployed)
+        if json_flag "$@"; then
+          if [ "$dep" = true ]; then
+            jq -n --arg l "$(line)" '{phase:"bnk",deployed:true,outputs:{flo_namespace:"f5-bnk",flo_utils_namespace:"f5-utils",bnk_line:$l},probe:{"f5-lifecycle-operator":"1/1 ready","f5-cne-controller":"Available=True","license":"Active"}}'
+          else
+            echo '{"phase":"bnk","deployed":false}'
+          fi
+        else
+          echo "bnk phase: deployed=$dep (workspace $WS, line $(line))"
+        fi ;;
+      *) fail "bnk: unknown subcommand '$sub'" ;;
+    esac ;;
+
+  tgw) log "tgw ${1:-}: (stub) done" ;;
+  kubectl|k|oc) log "$verb $*: (stub) ok" ;;
+  *) fail "unknown command '$verb' (stub)" ;;
+esac

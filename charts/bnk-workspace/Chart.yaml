@@ -1,0 +1,11 @@
+apiVersion: v2
+name: bnk-workspace
+description: >-
+  One roksbnkctl workspace driven by Argo CD: the workspace substrate (namespace,
+  PVC, ServiceAccount, RBAC, ConfigMap, Secret) as regular resources, and the
+  BNK lifecycle (guards, bnk up, status, bnk down) as Argo CD hook Jobs running
+  the roksbnkctl runner image.
+type: application
+version: 0.1.0
+appVersion: "1.54.0"
+keywords: [roksbnkctl, bnk, argocd, roks, f5]

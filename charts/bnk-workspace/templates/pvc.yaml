@@ -1,0 +1,24 @@
+# The workspace directory is roksbnkctl's state contract: terraform state,
+# config.yaml, cluster-outputs.json, registry-mirror.json, flp-outputs.json and
+# the applied-tfvars snapshot all live under /work/.roksbnkctl. Losing it orphans
+# the IAM trusted profile and leaves nothing to `bnk down` from — so the claim is
+# never pruned and never deleted with the Application.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.storage.claimName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "bnk.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - {{ .Values.storage.accessMode }}
+  {{- with .Values.storage.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.size }}

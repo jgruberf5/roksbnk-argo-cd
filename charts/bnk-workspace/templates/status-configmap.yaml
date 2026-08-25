@@ -1,0 +1,21 @@
+# The lifecycle's machine-readable outcome. Declared here (placeholder data) so
+# Argo CD tracks it and applies the bnk-status Lua health check to it; the hook
+# Jobs merge-patch `data`, and the Application's ignoreDifferences on /data plus
+# RespectIgnoreDifferences keep Argo CD from overwriting what the hooks wrote.
+# Same wave as the bnk-up Job, so its health never gates an earlier wave.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.status.configMapName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "bnk.labels" . | nindent 4 }}
+    roksbnkctl.io/status: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-options: Prune=false
+data:
+  lifecycle: {{ .Values.lifecycle | quote }}
+  outcome: pending
+  deployed: unknown
+  message: no bnk run recorded yet

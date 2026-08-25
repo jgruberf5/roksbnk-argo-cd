@@ -1,0 +1,9 @@
+{{- $script := `
+# SyncFail: a PreSync gate or the bnk up/down Job failed. Record the outcome so
+# the Application turns Degraded with the reason, and leave the failed hook Job
+# in place (hook-delete-policy BeforeHookCreation) for log inspection.
+roksbnkctl -w "$WS" bnk status --json > /tmp/status.json 2>/dev/null || echo '{}' > /tmp/status.json
+cur=$(local_kubectl get configmap "$STATUS_CM" -o jsonpath='{.data.message}' 2>/dev/null || true)
+write_status failed "$(jq -r '.deployed // "unknown"' /tmp/status.json)" "sync failed: ${cur:-see hook job logs (kubectl -n $(cat $SA/namespace) logs -l roksbnkctl.io/workspace=$WS --tail=200)}" /tmp/status.json
+` -}}
+{{ include "bnk.hookJob" (dict "root" . "name" "bnk-syncfail" "hook" "SyncFail" "wave" "0" "deadline" .Values.timeouts.status "script" $script "cwc" false) }}

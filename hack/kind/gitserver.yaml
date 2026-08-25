@@ -1,0 +1,40 @@
+# Serves the bare repository mounted at /repo on the kind node over git's
+# "dumb" HTTP protocol (git update-server-info must be run after each push —
+# hack/kind/publish.sh does that). Argo CD fetches
+# http://git.git.svc:8080/roksbnk-argo-cd.git
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: git
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitserver
+  namespace: git
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: gitserver}
+  template:
+    metadata:
+      labels: {app: gitserver}
+    spec:
+      containers:
+        - name: http
+          image: python:3.12-alpine
+          command: [python, -m, http.server, "8080", --directory, /repo]
+          ports: [{containerPort: 8080}]
+          volumeMounts: [{name: repo, mountPath: /repo, readOnly: true}]
+      volumes:
+        - name: repo
+          hostPath: {path: /repo, type: Directory}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: git
+  namespace: git
+spec:
+  selector: {app: gitserver}
+  ports: [{port: 8080, targetPort: 8080}]

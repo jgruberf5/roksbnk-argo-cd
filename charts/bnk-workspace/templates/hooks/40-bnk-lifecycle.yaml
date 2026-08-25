@@ -1,0 +1,28 @@
+{{- /*
+The Sync-phase hook: `bnk up --auto` (lifecycle: up) or `bnk down --auto`
+(lifecycle: down — the teardown path for Argo CD < 3.3 where PreDelete hooks do
+not exist, and the way to tear BNK down while keeping the Application).
+All of roksbnkctl's own guards, the admission-policy sweep, the registry-CA
+DaemonSet and the terraform apply/destroy run inside this Job, exactly as in
+the Argo Workflows demos. On BNK 2.3 the cwc-guard container runs alongside and
+exits when /signal/done appears.
+*/ -}}
+{{- $verb := ternary "down" "up" (eq .Values.lifecycle "down") }}
+{{- $script := printf `
+finish() {
+  rc=$?
+  touch /signal/done
+  if [ "$rc" -ne 0 ]; then
+    write_status failed "$(deployed_now)" "bnk %[1]s exited with status $rc — see job/bnk-%[1]s logs"
+  fi
+}
+trap finish EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+write_status running unknown "bnk %[1]s in progress"
+roksbnkctl -w "$WS" bnk %[1]s --auto
+roksbnkctl -w "$WS" bnk status --json > /tmp/status.json
+write_status succeeded "$(jq -r '.deployed // "unknown"' /tmp/status.json)" "bnk %[1]s completed" /tmp/status.json
+` $verb -}}
+{{- $cwc := and (eq $verb "up") (eq (include "bnk.cwcGuard" .) "true") }}
+{{ include "bnk.hookJob" (dict "root" . "name" (printf "bnk-%s" $verb) "hook" "Sync" "wave" "0" "deadline" (ternary .Values.timeouts.down .Values.timeouts.apply (eq $verb "down")) "script" $script "cwc" $cwc) }}

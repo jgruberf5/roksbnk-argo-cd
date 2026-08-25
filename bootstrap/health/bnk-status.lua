@@ -1,0 +1,40 @@
+-- Argo CD health check for the bnk-status ConfigMap (label roksbnkctl.io/status=true).
+-- Any other ConfigMap is Healthy. Wire it as
+--   upstream:        argocd-cm  resource.customizations.health.ConfigMap
+--   OpenShift GitOps: ArgoCD CR spec.resourceHealthChecks (group "", kind ConfigMap)
+local hs = {}
+local labels = (obj.metadata and obj.metadata.labels) or {}
+if labels["roksbnkctl.io/status"] ~= "true" then
+  hs.status = "Healthy"
+  return hs
+end
+local d = obj.data or {}
+local lifecycle = d.lifecycle or "up"
+local outcome = d.outcome or "pending"
+local msg = d.message or ""
+if outcome == "failed" then
+  hs.status = "Degraded"
+  hs.message = msg ~= "" and msg or ("bnk " .. lifecycle .. " failed")
+  return hs
+end
+if outcome == "running" then
+  hs.status = "Progressing"
+  hs.message = msg ~= "" and msg or ("bnk " .. lifecycle .. " in progress")
+  return hs
+end
+if outcome == "succeeded" then
+  if lifecycle == "down" and d.deployed == "false" then
+    hs.status = "Healthy"; hs.message = "BNK torn down (" .. (d.updatedAt or "") .. ")"; return hs
+  end
+  if lifecycle ~= "down" and d.deployed == "true" then
+    hs.status = "Healthy"; hs.message = "BNK deployed (" .. (d.updatedAt or "") .. ")"; return hs
+  end
+  hs.status = "Degraded"
+  hs.message = "bnk " .. lifecycle .. " reported success but deployed=" .. tostring(d.deployed)
+  return hs
+end
+-- pending: no run recorded yet. Healthy so it never gates a sync wave; the
+-- Application still shows OutOfSync/Syncing until the hooks have run.
+hs.status = "Healthy"
+hs.message = "no bnk run recorded yet"
+return hs

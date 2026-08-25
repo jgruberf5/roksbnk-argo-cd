@@ -1,0 +1,11 @@
+{{- if .Values.preDelete.enabled }}
+{{- $script := printf `
+# PreDelete (Argo CD >= 3.3): deleting the Application tears BNK down first.
+# Argo CD waits for this Job before removing the remaining resources; the PVC
+# survives (Delete=false) so a re-created Application finds its state.
+roksbnkctl -w "$WS" bnk down --auto
+%s
+` (ternary `roksbnkctl -w "$WS" tgw disconnect --auto || true
+roksbnkctl -w "$WS" cluster down --auto` `echo "cluster left in place (teardown.cluster=false or cluster.create=false)"` (and .Values.cluster.create .Values.teardown.cluster)) -}}
+{{ include "bnk.hookJob" (dict "root" . "name" "bnk-predelete" "hook" "PreDelete" "wave" "0" "deadline" .Values.timeouts.down "script" $script "cwc" false) }}
+{{- end }}
