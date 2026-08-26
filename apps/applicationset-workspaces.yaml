@@ -1,7 +1,7 @@
-# One Application per workspace overlay. Each element names the overlay under
-# apps/overlays/<workspace>/values.yaml and the destination cluster:
-#   in-target: the ROKS cluster hosting OpenShift GitOps (https://kubernetes.default.svc)
-#   hub:       the hub itself for the driver Jobs (roksbnkctl reaches ROKS over the TGW)
+# One Application per overlay, derived from the overlay itself: the git-files
+# generator reads every apps/overlays/*/values.yaml and exposes its keys to the
+# template, so the workspace name, namespace, cluster, BNK version and size are
+# written exactly once — in the overlay.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -10,64 +10,39 @@ spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
   generators:
-    - list:
-        elements:
-          - workspace: bnkconn
-            server: https://kubernetes.default.svc
-            bnkVersion: 2.4.0-EA
-            line: "2.4"
-            size: small
-            cluster: my-existing-roks
-          - workspace: bnkdisco
-            server: https://kubernetes.default.svc
-            bnkVersion: 2.4.0-EA
-            line: "2.4"
-            size: small
-            cluster: bnk-cid
-          - workspace: bnk-small
-            server: https://kubernetes.default.svc
-            bnkVersion: 2.4.0-EA
-            line: "2.4"
-            size: small
-            cluster: bnk-small
-          - workspace: bnk-medium
-            server: https://kubernetes.default.svc
-            bnkVersion: 2.4.0-EA
-            line: "2.4"
-            size: medium
-            cluster: bnk-medium
-          - workspace: bnk-large
-            server: https://kubernetes.default.svc
-            bnkVersion: 2.4.0-EA
-            line: "2.4"
-            size: large
-            cluster: bnk-large
+    - git:
+        repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
+        revision: main
+        files:
+          - path: "apps/overlays/*/values.yaml"
+          - path: "apps/overlays/kind-stub/values.yaml"
+            exclude: true                       # local verification only
   template:
     metadata:
       name: "bnk-{{ .workspace }}"
       labels:
-        roksbnkctl.io/bnk-version: "{{ .bnkVersion }}"
-        roksbnkctl.io/line: "{{ .line }}"
-        roksbnkctl.io/sizing-profile: "{{ .size }}"
-        roksbnkctl.io/cluster: "{{ .cluster }}"
+        roksbnkctl.io/bnk-version: "{{ .config.bnk.manifest_version }}"
+        roksbnkctl.io/line: '{{ regexFind "^[0-9]+\\.[0-9]+" .config.bnk.manifest_version }}'
+        roksbnkctl.io/sizing-profile: "{{ .sizing.profile }}"
+        roksbnkctl.io/cluster: "{{ .config.cluster.name }}"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
       project: bnk
       sources:
-        - repoURL: https://github.com/jgruberf5/roksbnk-argo-cd.git
+        - repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
           targetRevision: main
           path: charts/bnk-workspace
           helm:
             releaseName: "bnk-{{ .workspace }}"
             valueFiles:
-              - "$values/apps/overlays/{{ .workspace }}/values.yaml"
-        - repoURL: https://github.com/jgruberf5/roksbnk-argo-cd.git
+              - "$values/{{ .path.path }}/values.yaml"
+        - repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
           targetRevision: main
           ref: values
       destination:
-        server: "{{ .server }}"
-        namespace: "bnk-{{ .workspace }}"
+        server: https://kubernetes.default.svc   # the cluster Argo CD runs in (in-target or hub)
+        namespace: "{{ .namespace }}"
       ignoreDifferences:
         - kind: ConfigMap
           name: bnk-status

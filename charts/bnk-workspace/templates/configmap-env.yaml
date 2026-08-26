@@ -32,19 +32,13 @@
 {{- $_ := set $derived "ROKSBNKCTL_REGISTRY_TARGET" .Values.registry.target }}
 {{- end }}
 {{- if .Values.config }}
-{{- /* config mode: the config.yaml carries the workspace; env only gets what the hooks read */ -}}
+{{- /* config mode: the config.yaml carries the workspace; nothing is derived into env */ -}}
 {{- $sized = dict }}
-{{- $derived = dict
-  "ROKSBNKCTL_CLUSTER_CREATE" (include "bnk.clusterCreate" .)
-  "ROKSBNKCTL_CLUSTER_NAME" (include "bnk.clusterName" .)
-  "ROKSBNKCTL_MANIFEST_VERSION" (include "bnk.manifestVersion" .)
-  "REGISTRY_COS_NAME" .Values.cluster.registryCosName
--}}
-{{- if ne .Values.registry.mode "none" }}
-{{- $_ := set $derived "ROKSBNKCTL_REGISTRY_TARGET" .Values.registry.target }}
-{{- end }}
+{{- $derived = dict }}
 {{- end }}
 {{- $env := mergeOverwrite (dict) $sized $derived .Values.env }}
+{{- $userKeys := omit $env "configMapName" }}
+{{- if or (not .Values.config) (gt (len $userKeys) 0) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -63,3 +57,4 @@ data:
   {{ $k }}: {{ toString $v | quote }}
   {{- end }}
   {{- end }}
+{{- end }}

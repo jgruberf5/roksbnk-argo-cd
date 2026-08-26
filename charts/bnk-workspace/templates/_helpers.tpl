@@ -7,7 +7,7 @@ app.kubernetes.io/name: bnk-workspace
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 roksbnkctl.io/workspace: {{ .Values.workspace | quote }}
-roksbnkctl.io/line: {{ .Values.line | quote }}
+roksbnkctl.io/line: {{ include "bnk.line" . | quote }}
 roksbnkctl.io/sizing-profile: {{ .Values.sizing.profile | default "custom" | quote }}
 {{- with (include "bnk.manifestVersion" .) }}
 roksbnkctl.io/bnk-version: {{ . | quote }}
@@ -51,6 +51,15 @@ roksbnkctl.io/bnk-version: {{ . | quote }}
 {{- if .Values.config -}}{{ dig "bnk" "manifest_version" "" .Values.config }}{{- else -}}{{ index .Values.env "ROKSBNKCTL_MANIFEST_VERSION" | default "" }}{{- end -}}
 {{- end }}
 
+{{/* BNK line: explicit .Values.line, else major.minor of config.bnk.manifest_version, else 2.4 */}}
+{{- define "bnk.line" -}}
+{{- if .Values.line -}}{{ .Values.line }}{{- else -}}{{ regexFind "^[0-9]+\\.[0-9]+" (include "bnk.manifestVersion" .) | default "2.4" }}{{- end -}}
+{{- end }}
+{{/* registry mode: explicit .Values.registry.mode, else adopt when config.registry names a mirror, else none */}}
+{{- define "bnk.registryMode" -}}
+{{- if .Values.registry.mode -}}{{ .Values.registry.mode }}{{- else if (dig "registry" "target" "" .Values.config) -}}adopt{{- else -}}none{{- end -}}
+{{- end }}
+
 {{- define "bnk.image" -}}
 {{ .Values.runner.image }}:{{ .Values.runner.tag }}
 {{- end }}
@@ -58,7 +67,7 @@ roksbnkctl.io/bnk-version: {{ . | quote }}
 {{/* cwc-guard: "auto" => only on the BNK 2.3 line (the f5-spk-cwc Multi-Attach defect). */}}
 {{- define "bnk.cwcGuard" -}}
 {{- if eq (toString .Values.cwcGuard.enabled) "auto" -}}
-{{- if eq (toString .Values.line) "2.3" }}true{{ else }}false{{ end -}}
+{{- if eq (include "bnk.line" .) "2.3" }}true{{ else }}false{{ end -}}
 {{- else -}}
 {{- if .Values.cwcGuard.enabled }}true{{ else }}false{{ end -}}
 {{- end -}}
@@ -83,6 +92,13 @@ STATUS_CM={{ .Values.status.configMapName | quote }}
 HOOK_NAME=${HOOK_NAME:-unknown}
 SA=/var/run/secrets/kubernetes.io/serviceaccount
 LOCAL_KUBECONFIG=/tmp/local.kubeconfig
+# cfg_get <top> [<key>]: read a value from the mounted config.yaml (two levels deep is all the hooks need)
+CFG=${CFG:-{{ .Values.workspaceConfig.mountPath }}/config.yaml}
+cfg_get() {
+  [ -f "$CFG" ] || return 0
+  if [ $# -eq 1 ]; then sed -n "s/^$1: *//p" "$CFG" | head -1 | tr -d '"'
+  else awk -v s="$1:" -v k="$2:" '$0==s{f=1;next} f&&/^[^ ]/{f=0} f&&$1==k{sub(/^[^:]*: */,"");gsub(/"/,"");print;exit}' "$CFG"; fi
+}
 # jq: .deployed may be false — `//` would turn that into "unknown"
 DEPLOYED_JQ='if has("deployed") and .deployed != null then (.deployed|tostring) else "unknown" end'
 local_kubectl() { kubectl --kubeconfig="$LOCAL_KUBECONFIG" "$@"; }
@@ -115,7 +131,7 @@ version_change() {
   [ -f "$applied_f" ] && [ -f "$st" ] || return 0
   [ "$(jq -r '.resources | length' "$st" 2>/dev/null || echo 0)" != "0" ] || return 0
   applied=$(sed -n 's/^f5_bigip_k8s_manifest_version *= *"\(.*\)".*/\1/p' "$applied_f" | head -1)
-  desired="${ROKSBNKCTL_MANIFEST_VERSION:-}"
+  desired="${ROKSBNKCTL_MANIFEST_VERSION:-$(cfg_get bnk manifest_version)}"
   [ -n "$applied" ] && [ -n "$desired" ] && [ "$applied" != "$desired" ] && echo "$applied $desired"
   return 0
 }
@@ -141,6 +157,7 @@ workingDir: /work
 envFrom:
   - configMapRef:
       name: {{ .Values.env.configMapName }}
+      optional: true
   {{- if ne .Values.secrets.mode "none" }}
   - secretRef:
       name: {{ .Values.secrets.name }}

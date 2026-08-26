@@ -1,12 +1,13 @@
-{{- if and (eq .Values.lifecycle "up") (ne .Values.registry.mode "none") }}
+{{- $mode := include "bnk.registryMode" . }}
+{{- if and (eq .Values.lifecycle "up") (ne $mode "none") }}
 {{- $script := "" }}
-{{- if eq .Values.registry.mode "adopt" }}
+{{- if eq $mode "adopt" }}
 {{- $script = `
 # Disconnected: the mirror was populated elsewhere (Harbor / Artifactory);
 # adopt it so guardRegistryMirror finds a complete registry-mirror.json.
 roksbnkctl -w "$WS" registry adopt
 ` }}
-{{- else if eq .Values.registry.mode "replicate" }}
+{{- else if eq $mode "replicate" }}
 {{- $script = printf `
 # Connected (FAR-reachable from this pod): populate the mirror from the BOM.
 roksbnkctl -w "$WS" registry target
@@ -15,7 +16,7 @@ roksbnkctl -w "$WS" registry replicate --target %s
 roksbnkctl -w "$WS" registry verify
 ` .Values.registry.target }}
 {{- else }}
-{{- fail (printf "registry.mode must be none|adopt|replicate, got %q" .Values.registry.mode) }}
+{{- fail (printf "registry.mode must be none|adopt|replicate, got %q" $mode) }}
 {{- end }}
 {{ include "bnk.hookJob" (dict "root" . "name" "bnk-registry" "hook" "Sync" "wave" "-2" "deadline" .Values.timeouts.registry "script" $script "cwc" false) }}
 {{- end }}

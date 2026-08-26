@@ -7,7 +7,6 @@ workspace: bnkdisco
 namespace: bnk-bnkdisco
 lifecycle: up
 topology: hub
-line: "2.4"
 sizing:
   profile: small
 runner:
@@ -16,8 +15,6 @@ runner:
   runAsUser: 1000
   extraEnvFrom:
     - secretRef: {name: flp-handoff}   # F5 License Proxy endpoint + root CA, written by the flp workspace
-cluster:
-  registryCosName: bnk-registry-cos
 registry:
   mode: adopt                       # the mirror exists; record it (registry adopt)
   target: generic

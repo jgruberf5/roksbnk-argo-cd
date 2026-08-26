@@ -9,7 +9,6 @@ workspace: sm-cli
 namespace: bnk-sm-cli
 lifecycle: up
 topology: hub
-line: "2.4"
 sizing:
   profile: small               # → cluster.workers_per_zone=2, worker_flavor=bx2.8x32, bnk.tmm_replicas=3, cneinstance_size=Tiny
 runner:
@@ -18,10 +17,6 @@ runner:
   resources:
     requests: {cpu: 250m, memory: 512Mi}
     limits: {cpu: "2", memory: 3Gi}
-cluster:
-  registryCosName: sm-cli-registry-cos   # cluster register --registry-cos-name
-registry:
-  mode: none                   # connected: pull straight from FAR
 storage:
   size: 8Gi
   storageClassName: local-path # k3s default on the hub VSI

@@ -21,7 +21,7 @@ fail() { write_status failed "$(deployed_now)" "preflight: $*"; echo "preflight:
 [ -f "$HOME_WS/cluster-outputs.json" ] || fail "cluster-outputs.json missing — cluster register / cluster up did not complete"
 
 # guardRegistryMirror
-if [ -n "${ROKSBNKCTL_REGISTRY_TARGET:-}" ]; then
+if [ -n "${ROKSBNKCTL_REGISTRY_TARGET:-$(cfg_get registry target)}" ]; then
   rec="$HOME_WS/registry-mirror.json"
   [ -f "$rec" ] || fail "a registry mirror is configured (ROKSBNKCTL_REGISTRY_TARGET=$ROKSBNKCTL_REGISTRY_TARGET) but there is no record of it — run registry replicate or registry adopt"
   [ "$(jq -r '.chart_host // ""' "$rec")" != "" ] && [ "$(jq -r '.image_host // ""' "$rec")" != "" ] || fail "registry-mirror.json is incomplete (chart_host/image_host)"
@@ -30,7 +30,7 @@ if [ -n "${ROKSBNKCTL_REGISTRY_TARGET:-}" ]; then
 fi
 
 # FLP hand-off is mandatory in f5licenseproxy mode (bnk-flp-override.tfvars)
-if [ "${ROKSBNKCTL_LICENSE_MODE:-}" = "f5licenseproxy" ]; then
+if [ "${ROKSBNKCTL_LICENSE_MODE:-$(cfg_get bnk license_mode)}" = "f5licenseproxy" ]; then
   if [ -z "${ROKSBNKCTL_FLP_EXTERNAL_URL:-}" ] || [ -z "${ROKSBNKCTL_FLP_ROOT_CA_B64:-}" ]; then
     [ -f "$HOME_WS/flp-outputs.json" ] || fail "license_mode=f5licenseproxy but no FLP hand-off: set ROKSBNKCTL_FLP_EXTERNAL_URL + ROKSBNKCTL_FLP_ROOT_CA_B64 or run flp up first"
   fi
@@ -38,8 +38,9 @@ fi
 
 # guardCreateTimeSettings: a 2.3 <-> 2.4 line flip against an applied workspace is refused
 applied="$HOME_WS/state/terraform.applied.tfvars"
-if [ -f "$applied" ] && [ -n "${ROKSBNKCTL_MANIFEST_VERSION:-}" ]; then
-  want=$(printf '%%s' "$ROKSBNKCTL_MANIFEST_VERSION" | cut -d. -f1-2)
+desired_version="${ROKSBNKCTL_MANIFEST_VERSION:-$(cfg_get bnk manifest_version)}"
+if [ -f "$applied" ] && [ -n "$desired_version" ]; then
+  want=$(printf '%%s' "$desired_version" | cut -d. -f1-2)
   have=$(sed -n 's/^ *bnk_line *= *"\([^"]*\)".*/\1/p' "$applied" | head -1)
   if [ -n "$have" ] && [ "$have" != "$want" ]; then
     fail "BNK line change $have -> $want is refused on an applied workspace (bnk down first)"

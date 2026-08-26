@@ -13,7 +13,7 @@ for the ones a workspace overlay sets. Overlays live in
 | `createNamespace` | `false` | Render a `Namespace`; otherwise rely on the Application's `CreateNamespace=true`. |
 | `lifecycle` | `up` | `up` → the Sync hook runs `bnk up --auto`. `down` → it runs `bnk down --auto` (tear BNK down while keeping the Application; the only teardown path before Argo CD 3.3). |
 | `topology` | `in-target` | `in-target` (Argo CD on the ROKS cluster) or `hub` (Argo CD on a management cluster). Informational today — the hooks behave the same; `cluster.create: true` only makes sense on a hub. |
-| `line` | `"2.4"` | BNK line. `"2.3"` enables the cwc-guard container (`cwcGuard.enabled: auto`). |
+| `line` | derived | BNK line, major.minor of `config.bnk.manifest_version`. Set explicitly only to override. `2.3` enables the cwc-guard container (`cwcGuard.enabled: auto`). |
 
 ## Runner
 
@@ -38,14 +38,14 @@ including the admin kubeconfig it fetches.
 |---|---|---|
 | `config.cluster.create` | — | `false`: `bnk-cluster` runs `cluster register <config.cluster.name>`. `true` (hub): it runs `cluster up --auto` and builds the cluster `config.cluster` describes. |
 | `config.cluster.name` | — | The existing cluster to register, or the name of the cluster to build. |
-| `cluster.registryCosName` | `""` | Passed as `cluster register --registry-cos-name` (the registry COS instance a roksbnkctl-built cluster has). |
+| `cluster.registryCosName` | `""` | Only when the registry COS instance is not named `<prefix>-registry-cos` (roksbnkctl's convention, which `cluster register` tries first). |
 | `teardown.cluster` | `false` | With `cluster.create: true`: the PreDelete hook also runs `tgw disconnect` and `cluster down`. |
 
 ## Registry mirror
 
 | Value | Default | Meaning |
 |---|---|---|
-| `registry.mode` | `none` | `none`: pull from FAR. `adopt`: a mirror populated elsewhere — `bnk-registry` runs `registry adopt`. `replicate`: the pod can reach FAR — it runs `registry target/bom/replicate/verify`. |
+| `registry.mode` | derived | `adopt` when `config.registry` names a mirror (`bnk-registry` runs `registry adopt`), else `none` (pull from FAR). Set `replicate` when the pod can reach FAR and should populate the mirror itself. |
 | `registry.target` | `generic` | `icr` or `generic` (only when `mode` ≠ `none`). |
 
 The mirror itself — host, repository prefix, username, CA — is described in
@@ -93,9 +93,11 @@ every key). The chart:
 - renders it into the `bnk-config` ConfigMap (`workspaceConfig.configMapName`,
   wave −10), mounts it at `workspaceConfig.mountPath` (`/config`), and seeds
   the workspace from it in the `bnk-init` hook, with the Secret applied on top;
-- reads `cluster.create`, `cluster.name` and `bnk.manifest_version` from it
-  for the hooks (which verb `bnk-cluster` runs, the version-change check, the
-  `roksbnkctl.io/bnk-version` label).
+- reads `cluster.create`, `cluster.name`, `bnk.manifest_version` and
+  `registry.target` from it — at render time for the hook selection, the
+  derived `line`, `registry.mode` and the labels; in the hooks (from the
+  mounted file) for `cluster register`, the version-change check and the
+  preflight gate. Nothing from `config` is copied anywhere else.
 
 The blocks a workspace typically sets:
 

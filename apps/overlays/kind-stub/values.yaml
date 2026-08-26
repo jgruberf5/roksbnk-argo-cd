@@ -2,7 +2,6 @@
 workspace: kindstub
 namespace: bnk-kindstub
 lifecycle: up
-line: "2.4"
 sizing:
   profile: small
 runner:
@@ -13,10 +12,6 @@ runner:
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: 500m, memory: 256Mi}
-cluster:
-  registryCosName: bnk-registry-cos
-registry:
-  mode: none
 preflight:
   doctor: true
 storage:

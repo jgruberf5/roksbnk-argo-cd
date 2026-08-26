@@ -5,15 +5,10 @@ workspace: bnkconn
 namespace: bnk-bnkconn
 lifecycle: up
 topology: in-target
-line: "2.4"
 sizing:
   profile: small
 runner:
   tag: v1.54.0                      # leave runAsUser unset on OpenShift (SCC assigns it)
-cluster:
-  registryCosName: bnk-registry-cos # cluster register --registry-cos-name
-registry:
-  mode: none
 storage:
   storageClassName: ibmc-vpc-block-10iops-tier
 secrets:

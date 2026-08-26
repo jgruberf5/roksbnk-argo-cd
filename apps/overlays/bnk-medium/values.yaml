@@ -7,14 +7,11 @@ workspace: bnk-medium
 namespace: bnk-bnk-medium
 lifecycle: up
 topology: hub
-line: "2.4"
 sizing:
   profile: medium            # → cluster.workers_per_zone=2, worker_flavor=cx2.16x32, bnk.tmm_replicas=3, cneinstance_size=Tiny
 runner:
   tag: v1.54.0
   runAsUser: 1000
-registry:
-  mode: none
 storage:
   storageClassName: local-path
 secrets:

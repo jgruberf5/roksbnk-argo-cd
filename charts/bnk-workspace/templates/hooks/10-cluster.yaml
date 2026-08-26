@@ -3,7 +3,9 @@
 {{- if eq (include "bnk.clusterCreate" .) "true" }}
 {{- $cmd = `roksbnkctl -w "$WS" cluster up --auto` }}
 {{- else }}
-{{- $cmd = `roksbnkctl -w "$WS" cluster register "${ROKSBNKCTL_CLUSTER_NAME:?ROKSBNKCTL_CLUSTER_NAME (cluster.name) is required to register an existing cluster}" ${REGISTRY_COS_NAME:+--registry-cos-name "$REGISTRY_COS_NAME"}` }}
+{{- $cmd = printf `CLUSTER_NAME="${ROKSBNKCTL_CLUSTER_NAME:-$(cfg_get cluster name)}"
+[ -n "$CLUSTER_NAME" ] || { echo "config.cluster.name is required to register an existing cluster" >&2; exit 1; }
+roksbnkctl -w "$WS" cluster register "$CLUSTER_NAME" %s` (ternary (printf `--registry-cos-name %q` .Values.cluster.registryCosName) "" (ne .Values.cluster.registryCosName "")) }}
 {{- end }}
 {{- $script := printf `
 %s

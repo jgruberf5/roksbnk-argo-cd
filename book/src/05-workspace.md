@@ -33,30 +33,26 @@ chart fills in the node count, the node flavour and the TMM pod count:
 
 ## The values file
 
-`apps/overlays/sm-cli/values.yaml` has two halves. The top is Argo CD's
-concern — which hooks run, where, with what image and storage. The `config:`
-block is **roksbnkctl's own `config.yaml`**, verbatim: the same schema the
-roksbnkctl book documents and `roksbnkctl init example` prints. The chart
-renders it into a ConfigMap, mounts it at `/config`, and the init hook seeds
-the workspace from it. If you have run roksbnkctl on a laptop, you already
-know this file.
+`apps/overlays/sm-cli/values.yaml` has two halves, and nothing appears in
+both. The `config:` block is **roksbnkctl's own `config.yaml`**, verbatim:
+the same schema the roksbnkctl book documents and `roksbnkctl init example`
+prints — the cluster, the gateway, the BNK version, the supply chain. The chart
+renders it into a ConfigMap, mounts it at `/config`, and the hooks read it
+from there. Everything above it is Argo CD's concern only — things roksbnkctl
+has no field for: which lifecycle verb to run, the size profile, the runner
+image, storage, where the secrets come from, timeouts.
 
 ```yaml
 workspace: sm-cli              # roksbnkctl workspace name
 namespace: bnk-sm-cli          # where the hook Jobs and the PVC live
 lifecycle: up                  # up = install (bnk up); down = uninstall (bnk down)
 topology: hub                  # Argo CD on a management cluster; in-target if it runs on the ROKS cluster
-line: "2.4"
 sizing:
   profile: small               # 6× bx2.8x32, 3 TMM pods, deploymentSize Tiny — merged into config below
 
 runner:
   tag: v1.54.0
   runAsUser: 1000              # k3s hub; leave unset on OpenShift
-cluster:
-  registryCosName: sm-cli-registry-cos   # cluster register --registry-cos-name
-registry:
-  mode: none                   # connected: pull straight from F5's registry (FAR)
 storage:
   size: 8Gi
   storageClassName: local-path # ibmc-vpc-block-10iops-tier on ROKS
@@ -114,9 +110,12 @@ Block by block:
   the `bnk-secrets` Secret, which the init hook applies on top of the file.
   The chart refuses to render a `config` that contains `api_key_b64` or
   `*password_b64`.
-- **`registry.mode: none`** — a connected cluster pulls BNK from `repo.f5.com`
-  with the FAR pull key from the COS bucket. `adopt` or `replicate` are for a
-  Harbor/Artifactory mirror (disconnected clusters).
+- **Derived, not repeated.** The BNK line (2.3/2.4) comes from
+  `config.bnk.manifest_version`; whether a registry-mirror hook runs comes from
+  whether `config.registry` names a mirror; the registry COS instance is found
+  by roksbnkctl's own naming (`<prefix>-registry-cos`). Each is a chart value
+  you *can* set (`line`, `registry.mode`, `cluster.registryCosName`), but you
+  should not need to.
 
 
 ## What the runner will see
@@ -212,19 +211,24 @@ kubectl apply -f apps/sm-cli-application.yaml
 ```
 
 The labels are the convention this book uses to tell Applications apart in
-the UI: the BNK version (`config.bnk.manifest_version`), the line, the F5
-cluster size (`sizing.profile`) and the target cluster. Argo CD shows them on
-the Application, lets you filter the Applications list by them (**Labels**
-filter, or `?labels=roksbnkctl.io/sizing-profile=small` in the URL), and the
-chart stamps the same `roksbnkctl.io/*` labels on every resource it renders,
-so `kubectl get all -l roksbnkctl.io/bnk-version=2.4.0-EA` works on the hub
-too. Keep them in step with the overlay — they are documentation, not input.
+the UI: the BNK version, the line, the F5 cluster size and the target cluster.
+Argo CD shows them on the Application, lets you filter the Applications list
+by them (**Labels** filter, or `?labels=roksbnkctl.io/sizing-profile=small` in
+the URL), and the chart stamps the same `roksbnkctl.io/*` labels on every
+resource it renders, so `kubectl get all -l roksbnkctl.io/bnk-version=2.4.0-EA`
+works on the hub too.
+
+In a hand-written Application they repeat what the overlay says. The
+ApplicationSet avoids that: its git-files generator reads each
+`apps/overlays/*/values.yaml` and derives the name, namespace and labels from
+`workspace`, `namespace`, `config.bnk.manifest_version`, `sizing.profile` and
+`config.cluster.name` — the overlay is the only place those are written.
 
 ![Details → Summary shows the Application's labels](images/details-summary-labelled.png)
 
-For a fleet, add the workspace to `apps/applicationset-workspaces.yaml`
-instead; the ApplicationSet renders the same Application per entry, labels
-included (each list element carries `bnkVersion`, `line`, `size`, `cluster`).
+With the ApplicationSet applied instead (`apps/applicationset-workspaces.yaml`),
+there is nothing to add: a new `apps/overlays/<name>/values.yaml` in Git is a
+new Application.
 
 The Application appears **OutOfSync** — Argo CD has rendered the chart and
 listed every resource and hook it would create, but nothing is applied yet.

@@ -35,6 +35,8 @@ Every hook script starts with the same prelude (`_helpers.tpl`):
 - `write_status <outcome> <deployed> <message> [status.json]` — merge-patches
   the `bnk-status` ConfigMap's `data` only, so Argo CD's tracking metadata is
   untouched.
+- `cfg_get <block> <key>` — reads a value from the mounted `config.yaml`
+  (`cfg_get cluster name`, `cfg_get bnk manifest_version`).
 - `deployed_now` — `bnk status --json | jq` with a filter that treats `false`
   as a value (a naive `.deployed // "unknown"` turns `false` into "unknown").
 
@@ -47,7 +49,7 @@ container stops, and let the Job fail.
 | Resource | Wave | Notes |
 |---|---|---|
 | `Namespace` (optional) | −20 | `Prune=false,Delete=false` |
-| `ServiceAccount`, `Role`, `RoleBinding`, `ConfigMap bnk-config` (your `config.yaml`), `ConfigMap bnk-env` (a few hook-internal keys), `Secret` / `ExternalSecret` | −10 | |
+| `ServiceAccount`, `Role`, `RoleBinding`, `ConfigMap bnk-config` (your `config.yaml`), `Secret` / `ExternalSecret` | −10 | (`ConfigMap bnk-env` only exists when an overlay sets extra `env` keys) |
 | `PersistentVolumeClaim bnk-work` | −4 | `Prune=false,Delete=false`, `ignore-healthcheck` — shares the first hook's wave so a WaitForFirstConsumer class binds inside the wave |
 | `ConfigMap bnk-status` | 0 | placeholder data; the hooks own `data`; Application `ignoreDifferences` on `/data` |
 

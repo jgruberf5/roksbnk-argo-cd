@@ -1,13 +1,16 @@
-# sm-cli on the Argo CD hub. Manual sync — syncing IS the "Apply this plan?" step.
+# sm-cli on the Argo CD hub, written by hand (apps/applicationset-workspaces.yaml
+# derives the same Application — name, namespace, labels — from the overlay; use
+# that for anything beyond a single workspace). Manual sync — syncing IS the
+# "Apply this plan?" step.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: bnk-sm-cli
   namespace: argocd
-  labels:
-    roksbnkctl.io/bnk-version: 2.4.0-EA      # ROKSBNKCTL_MANIFEST_VERSION in the overlay
+  labels:                                     # mirror the overlay: config.bnk.manifest_version, sizing.profile, config.cluster.name
+    roksbnkctl.io/bnk-version: 2.4.0-EA
     roksbnkctl.io/line: "2.4"
-    roksbnkctl.io/sizing-profile: small       # sizing.profile in the overlay (F5 cluster size)
+    roksbnkctl.io/sizing-profile: small
     roksbnkctl.io/cluster: sm-cli
   finalizers:
     - resources-finalizer.argocd.argoproj.io   # delete → PreDelete hook runs bnk down first

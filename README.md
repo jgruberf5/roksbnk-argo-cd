@@ -176,10 +176,10 @@ Delete the Application (PreDelete runs `bnk down --auto`, then the resources go;
 | `namespace` | `bnk-ci` | namespace the hook Jobs run in |
 | `lifecycle` | `up` | `up` → Sync hook runs `bnk up`; `down` → `bnk down` |
 | `topology` | `in-target` | `in-target` or `hub` |
-| `line` | `"2.4"` | BNK line; `"2.3"` enables the cwc-guard container |
+| `line` | derived from `config.bnk.manifest_version` | `2.3` enables the cwc-guard container |
 | `runner.image`, `runner.tag` | runner `v1.54.0` | the roksbnkctl runner image |
-| `cluster.create` / `cluster.name` / `cluster.registryCosName` | `false` / `""` / `""` | `cluster up` (hub) vs `cluster register <name>` |
-| `registry.mode` / `registry.target` | `none` / `generic` | `adopt` (mirror populated elsewhere) or `replicate` (pod can reach FAR) |
+| `config.cluster.create` / `config.cluster.name` | — | `cluster up` (hub) vs `cluster register <name>` |
+| `registry.mode` | derived from `config.registry` | `adopt` when a mirror is configured; `replicate` to populate it from the pod |
 | `preflight.doctor` / `preflight.command` | `true` / `""` | run `doctor`; delegate the gate to a roksbnkctl verb once `bnk preflight` exists |
 | `storage.size` / `storage.storageClassName` | `8Gi` / `""` | the workspace PVC |
 | `secrets.mode` / `secrets.name` | `existing` / `bnk-secrets` | `existing`, `externalSecret`, `inline` (dev), `none` |
