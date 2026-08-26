@@ -68,6 +68,20 @@ write_status() {
   local_kubectl patch configmap "$STATUS_CM" --type merge -p "$patch" >/dev/null
   echo "[status] $1 deployed=$2 — $3"
 }
+# Version change detection. BNK does not support in-place upgrades: compare the
+# desired manifest version with the one recorded by the last apply. Prints
+# "<applied> <desired>" when an applied workspace's version differs, else nothing.
+version_change() {
+  ws_dir="${ROKSBNKCTL_HOME:-/work/.roksbnkctl}/$WS"
+  applied_f="$ws_dir/state/terraform.applied.tfvars"
+  st="$ws_dir/state/terraform.tfstate"
+  [ -f "$applied_f" ] && [ -f "$st" ] || return 0
+  [ "$(jq -r '.resources | length' "$st" 2>/dev/null || echo 0)" != "0" ] || return 0
+  applied=$(sed -n 's/^f5_bigip_k8s_manifest_version *= *"\(.*\)".*/\1/p' "$applied_f" | head -1)
+  desired="${ROKSBNKCTL_MANIFEST_VERSION:-}"
+  [ -n "$applied" ] && [ -n "$desired" ] && [ "$applied" != "$desired" ] && echo "$applied $desired"
+  return 0
+}
 # roksbnkctl `bnk status` reports deployed=true whenever the phase's state file
 # exists — including right after `bnk down`, when it holds zero resources. Cross-
 # check the Terraform state so a torn-down workspace reports deployed=false.

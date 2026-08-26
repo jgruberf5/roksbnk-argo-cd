@@ -46,6 +46,17 @@ if [ -f "$applied" ] && [ -n "${ROKSBNKCTL_MANIFEST_VERSION:-}" ]; then
   fi
 fi
 
+# BNK does not support in-place upgrades (2.3 and 2.4): a manifest-version change
+# on an applied workspace is either refused here or turned into down-then-up by bnk-up.
+vc=$(version_change)
+if [ -n "$vc" ]; then
+  set -- $vc
+  case "{{ .Values.upgrade.strategy }}" in
+    refuse) fail "BNK version change $1 -> $2 on an applied workspace: BNK does not support in-place upgrades. Set lifecycle: down and sync, change the version, set lifecycle: up and sync (upgrade.strategy=refuse)" ;;
+    down-then-up) echo "preflight: BNK version change $1 -> $2 — no in-place upgrade exists; bnk-up will run bnk down, then bnk up (upgrade.strategy=down-then-up)" ;;
+    *) fail "upgrade.strategy must be down-then-up or refuse" ;;
+  esac
+fi
 roksbnkctl -w "$WS" bnk status --json > /tmp/status.json || echo '{}' > /tmp/status.json
 echo "preflight: ok (deployed=$(deployed_now))"
 ` }}

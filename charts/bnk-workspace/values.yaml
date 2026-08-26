@@ -66,6 +66,20 @@ registry:
   mode: none                   # none | adopt (mirror populated elsewhere) | replicate (pod can reach FAR)
   target: generic              # icr | generic → ROKSBNKCTL_REGISTRY_TARGET when mode != none
 
+# ---------------------------------------------------------------------------
+# UPGRADES. BNK 2.3 and 2.4 do not support in-place upgrades: the supported path
+# is `bnk down` (uninstall the old version) followed by `bnk up` (install the
+# new). When ROKSBNKCTL_MANIFEST_VERSION differs from the version recorded in
+# the applied workspace, the bnk-up hook therefore never applies the change in
+# place:
+#   down-then-up  run `bnk down --auto`, then `bnk up --auto`, in the same sync
+#                 (Sync is the approval; the preflight log announces it)
+#   refuse        fail the preflight gate with instructions to set
+#                 lifecycle: down, sync, change the version, set up, sync
+# ---------------------------------------------------------------------------
+upgrade:
+  strategy: down-then-up       # down-then-up | refuse
+
 preflight:
   doctor: true                 # run `roksbnkctl doctor` in the init hook
   command: ""                  # e.g. `roksbnkctl -w "$WS" bnk preflight` once that verb exists;

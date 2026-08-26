@@ -109,6 +109,10 @@ case "$verb" in
         if [ -f "$D/state/terraform.applied.tfvars" ]; then
           have=$(sed -n 's/^bnk_line = "\(.*\)"/\1/p' "$D/state/terraform.applied.tfvars")
           [ "$have" = "$(line)" ] || fail "BNK line change $have -> $(line) refused (guardCreateTimeSettings)"
+          havev=$(sed -n 's/^f5_bigip_k8s_manifest_version = "\(.*\)"/\1/p' "$D/state/terraform.applied.tfvars")
+          if [ "$(deployed)" = "true" ] && [ -n "$havev" ] && [ "$havev" != "${ROKSBNKCTL_MANIFEST_VERSION:-2.4.0-0}" ]; then
+            fail "IN-PLACE UPGRADE ATTEMPTED ($havev -> ${ROKSBNKCTL_MANIFEST_VERSION}): BNK does not support this — the chart must run bnk down first"
+          fi
         fi
         [ -z "${STUB_FAIL_GUARD:-}" ] || fail "$STUB_FAIL_GUARD"
         log "guards ok · terraform plan: $([ "$(deployed)" = true ] && echo 'no changes' || echo '47 to add')"
@@ -117,7 +121,7 @@ case "$verb" in
         [ -z "${STUB_FAIL_APPLY:-}" ] || fail "terraform apply failed after 5 attempts: $STUB_FAIL_APPLY"
         mkdir -p "$D/state"
         jq -n --arg l "$(line)" '{resources:[{type:"helm_release",name:"flo"},{type:"kubectl_manifest",name:"cneinstance"},{type:"kubectl_manifest",name:"license"}],outputs:{flo_namespace:{value:"f5-bnk"},flo_utils_namespace:{value:"f5-utils"},bnk_line:{value:$l}}}' > "$D/state/terraform.tfstate"
-        printf 'bnk_line = "%s"\nflo_namespace = "f5-bnk"\n' "$(line)" > "$D/state/terraform.applied.tfvars"
+        printf 'bnk_line = "%s"\nf5_bigip_k8s_manifest_version = "%s"\nflo_namespace = "f5-bnk"\n' "$(line)" "${ROKSBNKCTL_MANIFEST_VERSION:-2.4.0-0}" > "$D/state/terraform.applied.tfvars"
         log "bnk up: License bnk-license Active · CNEInstance Available · done" ;;
       down)
         if [ "$(deployed)" = "false" ]; then log "bnk down: nothing to do (no BNK state in $WS)"; exit 0; fi

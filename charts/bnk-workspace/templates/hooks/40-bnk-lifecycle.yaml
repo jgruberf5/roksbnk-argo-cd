@@ -6,8 +6,35 @@ All of roksbnkctl's own guards, the admission-policy sweep, the registry-CA
 DaemonSet and the terraform apply/destroy run inside this Job, exactly as in
 the Argo Workflows demos. On BNK 2.3 the cwc-guard container runs alongside and
 exits when /signal/done appears.
+
+UPGRADES: BNK 2.3 and 2.4 do not support in-place upgrades. When the desired
+manifest version differs from the one recorded by the last apply, `bnk up`
+is never run against the old install: with upgrade.strategy=down-then-up the
+Job runs `bnk down --auto` first and then `bnk up --auto`; with `refuse` it
+exits 1 and tells the operator to flip lifecycle to down, sync, then back.
 */ -}}
 {{- $verb := ternary "down" "up" (eq .Values.lifecycle "down") }}
+{{- $upgradeStep := "" }}
+{{- if eq $verb "up" }}
+{{- $upgradeStep = printf `# BNK 2.3/2.4 have no in-place upgrade: a version change on an applied workspace
+# is uninstalled first (bnk down), then installed fresh (bnk up).
+vc=$(version_change)
+if [ -n "$vc" ]; then
+  set -- $vc
+  case "%s" in
+    down-then-up)
+      write_status running "true" "upgrading BNK $1 -> $2: bnk down (no in-place upgrade), then bnk up"
+      echo "== BNK version change $1 -> $2: running bnk down first (BNK does not support in-place upgrades)"
+      roksbnkctl -w "$WS" bnk down --auto
+      echo "== bnk down complete; installing $2"
+      ;;
+    *)
+      echo "BNK version change $1 -> $2 refused (upgrade.strategy=refuse): set lifecycle: down, sync, change the version, set lifecycle: up, sync" >&2
+      exit 1
+      ;;
+  esac
+fi` .Values.upgrade.strategy }}
+{{- end }}
 {{- $script := printf `
 finish() {
   rc=$?
@@ -20,9 +47,10 @@ trap finish EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 write_status running unknown "bnk %[1]s in progress"
+%[2]s
 roksbnkctl -w "$WS" bnk %[1]s --auto
 roksbnkctl -w "$WS" bnk status --json > /tmp/status.json
 write_status succeeded "$(deployed_now)" "bnk %[1]s completed" /tmp/status.json
-` $verb -}}
+` $verb $upgradeStep -}}
 {{- $cwc := and (eq $verb "up") (eq (include "bnk.cwcGuard" .) "true") }}
 {{ include "bnk.hookJob" (dict "root" . "name" (printf "bnk-%s" $verb) "hook" "Sync" "wave" "0" "deadline" (ternary .Values.timeouts.down .Values.timeouts.apply (eq $verb "down")) "script" $script "cwc" $cwc) }}
