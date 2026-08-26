@@ -35,13 +35,22 @@ case "$verb" in
     echo "roksbnkctl stub (simulates v${STUB_VERSION:-1.54.0}); terraform stub; helm stub" ;;
 
   init)
-    [ -n "${ROKSBNKCTL_REGION:-}" ] || fail "ibmcloud.region is required (ROKSBNKCTL_REGION)"
-    [ -n "${ROKSBNKCTL_RESOURCE_GROUP:-}" ] || fail "ibmcloud.resource_group is required (ROKSBNKCTL_RESOURCE_GROUP)"
-    [ -n "${ROKSBNKCTL_PREFIX:-}" ] || fail "prefix is required (ROKSBNKCTL_PREFIX)"
+    cf=""; while [ $# -gt 0 ]; do case "$1" in --config-file) cf=$2; shift 2;; --config-file=*) cf=${1#*=}; shift;; *) shift;; esac; done
     mkdir -p "$D/state" "$D/state-cluster"
-    { echo "workspace: $WS"; echo "seeded_from_env:"; env | grep '^ROKSBNKCTL_' | grep -v '_B64=' | sort | sed 's/^/  /'; } > "$D/config.yaml"
-    echo "$WS" > "$HOME_DIR/current"
-    log "init: workspace $WS written to $D/config.yaml ($(env | grep -c '^ROKSBNKCTL_') overrides)" ;;
+    if [ -n "$cf" ]; then
+      [ -f "$cf" ] || fail "reading --config-file: $cf: no such file"
+      grep -q '^ *region:' "$cf" || fail "parsing --config-file: ibmcloud.region is required"
+      grep -q '^prefix:' "$cf" || fail "parsing --config-file: prefix is required"
+      { cat "$cf"; echo "# env overrides applied on top: $(env | grep -o '^ROKSBNKCTL_[A-Z_]*' | sort | tr '\n' ' ')"; } > "$D/config.yaml"
+      log "init: seeded workspace $WS from $cf ($(grep -c ':' "$cf") lines), env overrides applied"
+    else
+      [ -n "${ROKSBNKCTL_REGION:-}" ] || fail "ibmcloud.region is required (ROKSBNKCTL_REGION)"
+      [ -n "${ROKSBNKCTL_RESOURCE_GROUP:-}" ] || fail "ibmcloud.resource_group is required (ROKSBNKCTL_RESOURCE_GROUP)"
+      [ -n "${ROKSBNKCTL_PREFIX:-}" ] || fail "prefix is required (ROKSBNKCTL_PREFIX)"
+      { echo "workspace: $WS"; echo "seeded_from_env:"; env | grep '^ROKSBNKCTL_' | grep -v '_B64=' | sort | sed 's/^/  /'; } > "$D/config.yaml"
+      log "init: workspace $WS written to $D/config.yaml ($(env | grep -c '^ROKSBNKCTL_') overrides)"
+    fi
+    echo "$WS" > "$HOME_DIR/current" ;;
 
   doctor)
     [ -n "${IBMCLOUD_API_KEY:-}" ] || fail "IBM Cloud API key not resolvable (set IBMCLOUD_API_KEY)"

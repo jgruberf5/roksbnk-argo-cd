@@ -1,50 +1,59 @@
 # sm-cli — existing ROKS 4.21 cluster in us-east (6× bx2.8x32, 2 per zone,
-# public + private service endpoints), driven from the us-south Argo CD hub VSI
-# over the Transit Gateways. BNK 2.4 "small cluster" profile per the roksbnkctl
-# single-NIC sizing appendix: deploymentSize stays Tiny on ROKS (anything larger
-# requests hugepages ROKS cannot provide), capacity comes from tmmReplicas + nodes.
+# public + private service endpoints), driven from the us-south Argo CD hub VSI.
+# BNK 2.4 "Small cluster" profile (F5 single-NIC sizing guide): deploymentSize
+# stays Tiny on ROKS; capacity is tmmReplicas + node size.
 #
-# The cluster's own VPC prefixes (10.241.0.0/18 ×3) collide with bnk-svc-vpc, which
-# is already on bnkci-testing, so the cluster stays on sm-cli-tgw; the hub VPC is
-# attached to BOTH gateways. roksbnkctl reaches the cluster's public endpoint.
+# The workspace is described with roksbnkctl's own config.yaml (config:) — the
+# same schema the roksbnkctl book documents. Secrets come from bnk-secrets.
 workspace: sm-cli
 namespace: bnk-sm-cli
 lifecycle: up
 topology: hub
 line: "2.4"
 sizing:
-  profile: small               # sm-cli IS the Small cluster: 6× bx2.8x32 (2/zone), 3 TMM pods, deploymentSize Tiny
+  profile: small               # → cluster.workers_per_zone=2, worker_flavor=bx2.8x32, bnk.tmm_replicas=3, cneinstance_size=Tiny
 runner:
   tag: v1.54.0
-  runAsUser: 1000                    # k3s, not OpenShift — pin the runner's uid
+  runAsUser: 1000              # k3s, not OpenShift — pin the runner's uid
   resources:
     requests: {cpu: 250m, memory: 512Mi}
     limits: {cpu: "2", memory: 3Gi}
 cluster:
-  create: false
-  name: sm-cli
-  registryCosName: sm-cli-registry-cos
+  registryCosName: sm-cli-registry-cos   # cluster register --registry-cos-name
 registry:
-  mode: none                         # connected: pull straight from FAR
+  mode: none                   # connected: pull straight from FAR
 storage:
   size: 8Gi
-  storageClassName: local-path       # k3s default on the hub VSI
+  storageClassName: local-path # k3s default on the hub VSI
 secrets:
-  mode: existing                     # bnk-secrets created by hack/vsi/apply-hub.sh
-env:
-  ROKSBNKCTL_REGION: us-east
-  ROKSBNKCTL_RESOURCE_GROUP: default
-  ROKSBNKCTL_PREFIX: sm-cli
-  ROKSBNKCTL_OPENSHIFT_VERSION: "4.21"
-  ROKSBNKCTL_CLUSTER_NETWORK_MODE: single-nic
-  ROKSBNKCTL_TRANSIT_GATEWAY_NAME: sm-cli-tgw
-  ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-EA
-  ROKSBNKCTL_FAR_AUTH_FILE: non-ga-prod-pull-key.tgz
-  ROKSBNKCTL_SUBSCRIPTION_JWT_FILE: subscription.jwt
-  ROKSBNKCTL_COS_INSTANCE: bnk-supply-chain
-  ROKSBNKCTL_COS_BUCKET: bnk-artifacts-0b5a00334eaf
-  ROKSBNKCTL_COS_REGION: us-south
-  ROKSBNKCTL_GENERIC_HOST: ""        # explicit: no mirror
+  mode: existing               # bnk-secrets created by hack/vsi/apply-hub.sh
+
+config:                        # roksbnkctl config.yaml (see `roksbnkctl init example`)
+  ibmcloud:
+    region: us-east
+    resource_group: default
+  prefix: sm-cli
+  tf_source:
+    type: embedded
+  cluster:
+    create: false              # attach to the existing cluster (cluster register)
+    name: sm-cli
+    openshift_version: "4.21"
+    network_mode: single-nic
+  resources:
+    transit_gateway:
+      create: false
+      existing: sm-cli-tgw     # the gateway the cluster VPC is already on
+  bnk:
+    manifest_version: 2.4.0-EA
+    far_repo_url: repo.f5.com
+    far_auth_file: non-ga-prod-pull-key.tgz
+    subscription_jwt_file: subscription.jwt
+  cos:
+    instance: bnk-supply-chain
+    bucket: bnk-artifacts-0b5a00334eaf
+    region: us-south
+
 timeouts:
   init: 600
   cluster: 1800

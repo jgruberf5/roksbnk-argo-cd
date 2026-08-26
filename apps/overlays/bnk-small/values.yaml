@@ -1,24 +1,18 @@
-# "Small cluster" — F5 single-NIC sizing guide, as run on ROKS (roksbnkctl book,
-# appendix C): 6 worker nodes (2 per zone) bx2.8x32, 3 TMM pods (1 per zone),
-# ~7.8 Gbit/s L4 ingress. deploymentSize stays Tiny on ROKS — capacity comes from
-# tmmReplicas and node size, never from a larger BNK profile.
-#
-# hub topology: `cluster.create: true` builds the cluster from the hook Job
-# (cluster up), so this overlay is the whole thing — VPC, ROKS, BNK. Set
-# `cluster.create: false` + `cluster.name` to install onto an existing cluster.
+# "Small cluster" — F5 single-NIC sizing guide, as verified on ROKS by
+# roksbnkctl (appendix C): 6 worker nodes (2 per zone) bx2.8x32, 3 TMM pods,
+# deploymentSize Tiny. Hub topology: cluster.create: true builds the VPC, the ROKS
+# cluster and BNK from this one overlay; deleting the Application (teardown.cluster:
+# true) removes them again.
 workspace: bnk-small
 namespace: bnk-bnk-small
 lifecycle: up
 topology: hub
 line: "2.4"
 sizing:
-  profile: small            # → workers/zone, flavour, tmmReplicas, deploymentSize=Tiny (see values.yaml)
+  profile: small            # → cluster.workers_per_zone=2, worker_flavor=bx2.8x32, bnk.tmm_replicas=3, cneinstance_size=Tiny
 runner:
   tag: v1.54.0
   runAsUser: 1000
-cluster:
-  create: true
-  name: bnk-small
 registry:
   mode: none
 storage:
@@ -26,20 +20,34 @@ storage:
 secrets:
   mode: existing
 teardown:
-  cluster: true                      # deleting the Application also removes the cluster it built
-env:
-  ROKSBNKCTL_REGION: us-east
-  ROKSBNKCTL_RESOURCE_GROUP: default
-  ROKSBNKCTL_PREFIX: bnk-small
-  ROKSBNKCTL_OPENSHIFT_VERSION: "4.21"
-  ROKSBNKCTL_CLUSTER_VPC_CIDR: 10.252.0.0/16   # must not overlap any VPC on the transit gateway
-  ROKSBNKCTL_TRANSIT_GATEWAY_NAME: bnkci-testing
-  ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-EA
-  ROKSBNKCTL_FAR_AUTH_FILE: non-ga-prod-pull-key.tgz
-  ROKSBNKCTL_SUBSCRIPTION_JWT_FILE: subscription.jwt
-  ROKSBNKCTL_COS_INSTANCE: bnk-supply-chain
-  ROKSBNKCTL_COS_BUCKET: bnk-artifacts-0b5a00334eaf
-  ROKSBNKCTL_COS_REGION: us-south
+  cluster: true
+
+config:                        # roksbnkctl config.yaml
+  ibmcloud:
+    region: us-east
+    resource_group: default
+  prefix: bnk-small
+  tf_source:
+    type: embedded
+  cluster:
+    create: true               # build the cluster (hub only)
+    name: bnk-small
+    openshift_version: "4.21"
+    vpc_cidr: 10.252.0.0/16       # must not overlap any VPC on the transit gateway
+  resources:
+    transit_gateway:
+      create: false
+      existing: bnkci-testing  # shared gateway, by name or id
+  bnk:
+    manifest_version: 2.4.0-EA
+    far_repo_url: repo.f5.com
+    far_auth_file: non-ga-prod-pull-key.tgz
+    subscription_jwt_file: subscription.jwt
+  cos:
+    instance: bnk-supply-chain
+    bucket: bnk-artifacts-0b5a00334eaf
+    region: us-south
+
 timeouts:
   cluster: 7200
   apply: 7200

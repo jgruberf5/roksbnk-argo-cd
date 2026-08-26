@@ -6,6 +6,6 @@
 roksbnkctl -w "$WS" bnk down --auto
 %s
 ` (ternary `roksbnkctl -w "$WS" tgw disconnect --auto || true
-roksbnkctl -w "$WS" cluster down --auto` `echo "cluster left in place (teardown.cluster=false or cluster.create=false)"` (and .Values.cluster.create .Values.teardown.cluster)) -}}
+roksbnkctl -w "$WS" cluster down --auto` `echo "cluster left in place (teardown.cluster=false or cluster.create=false)"` (and (eq (include "bnk.clusterCreate" .) "true") .Values.teardown.cluster)) -}}
 {{ include "bnk.hookJob" (dict "root" . "name" "bnk-predelete" "hook" "PreDelete" "wave" "0" "deadline" .Values.timeouts.down "script" $script "cwc" false) }}
 {{- end }}

@@ -1,0 +1,29 @@
+{{- if .Values.config }}
+# roksbnkctl's native config.yaml for this workspace (config mode). The init
+# hook seeds the workspace from it: `init --config-file /config/config.yaml
+# --override-from-env`. The sizing profile is merged in; secrets never are.
+{{- $cfg := include "bnk.effectiveConfig" . | fromYaml }}
+{{- $size := (dig "bnk" "cneinstance_size" .Values.sizing.deploymentSize $cfg) | toString }}
+{{- if and (eq (toString .Values.line) "2.4") (ne $size "Tiny") (not .Values.sizing.allowNonTinyDeploymentSize) }}
+{{- fail (printf "config.bnk.cneinstance_size=%q: on ROKS the BNK 2.4 deploymentSize must stay Tiny — every larger profile requests hugepages that ROKS workers cannot provide and the install fails silently. Choose capacity with sizing.profile (small|medium|large) instead, or set sizing.allowNonTinyDeploymentSize=true if you really know better." $size) }}
+{{- end }}
+{{- range $k := list "api_key_b64" "password_b64" "bigip_password_b64" }}
+{{- if contains $k (toYaml $cfg) }}
+{{- fail (printf "config contains %s — secrets must come from bnk-secrets through the environment, never from Git" $k) }}
+{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.workspaceConfig.configMapName }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "bnk.labels" . | nindent 4 }}
+    roksbnkctl.io/lifecycle: {{ .Values.lifecycle | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+data:
+  config.yaml: |
+    # rendered by the bnk-workspace chart — edit apps/overlays/<workspace>/values.yaml (config:)
+{{ include "bnk.effectiveConfig" . | indent 4 }}
+{{- end }}

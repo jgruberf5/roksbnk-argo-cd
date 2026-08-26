@@ -1,6 +1,7 @@
+{{- $init := ternary (printf `roksbnkctl init -w "$WS" --config-file %s/config.yaml --override-from-env` .Values.workspaceConfig.mountPath) `roksbnkctl init -w "$WS" --non-interactive --override-from-env` (eq (include "bnk.configMode" .) "true") }}
 {{- $script := printf `
-roksbnkctl init -w "$WS" --non-interactive --override-from-env
+%s
 roksbnkctl version
 %s
-` (ternary `roksbnkctl -w "$WS" doctor` `echo "doctor: skipped (preflight.doctor=false)"` .Values.preflight.doctor) -}}
+` $init (ternary `roksbnkctl -w "$WS" doctor` `echo "doctor: skipped (preflight.doctor=false)"` .Values.preflight.doctor) -}}
 {{ include "bnk.hookJob" (dict "root" . "name" "bnk-init" "hook" "Sync" "wave" "-4" "deadline" .Values.timeouts.init "script" $script "cwc" false) }}

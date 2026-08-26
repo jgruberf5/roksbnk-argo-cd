@@ -1,8 +1,10 @@
-# Local verification on kind with the stub runner (hack/stub-runner).
+# Local verification on kind with the stub runner (hack/stub-runner) — config style.
 workspace: kindstub
 namespace: bnk-kindstub
 lifecycle: up
 line: "2.4"
+sizing:
+  profile: small
 runner:
   image: roksbnkctl-stub
   tag: dev
@@ -12,12 +14,9 @@ runner:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: 500m, memory: 256Mi}
 cluster:
-  create: false
-  name: kind-existing-roks
   registryCosName: bnk-registry-cos
 registry:
-  mode: adopt
-  target: generic
+  mode: none
 preflight:
   doctor: true
 storage:
@@ -27,15 +26,22 @@ secrets:
   mode: inline                 # dev only — the stub never talks to IBM Cloud
   inline:
     IBMCLOUD_API_KEY: stub-not-a-real-key
-env:
-  ROKSBNKCTL_REGION: us-south
-  ROKSBNKCTL_RESOURCE_GROUP: default
-  ROKSBNKCTL_PREFIX: kindstub
-  ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-0.0.1
-  ROKSBNKCTL_LICENSE_MODE: subscription
+config:
+  ibmcloud:
+    region: us-south
+    resource_group: default
+  prefix: kindstub
+  tf_source:
+    type: embedded
+  cluster:
+    create: false
+    name: kind-existing-roks
+  bnk:
+    manifest_version: 2.4.0-0.0.1
+    license_mode: subscription
+env:                           # stub knobs only
   STUB_APPLY_SECONDS: "20"
   STUB_DOWN_SECONDS: "8"
-  STUB_MIRROR_MISSING: "0"
 timeouts:
   init: 120
   cluster: 300

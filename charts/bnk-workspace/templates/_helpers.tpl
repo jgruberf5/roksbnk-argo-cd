@@ -9,9 +9,46 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 roksbnkctl.io/workspace: {{ .Values.workspace | quote }}
 roksbnkctl.io/line: {{ .Values.line | quote }}
 roksbnkctl.io/sizing-profile: {{ .Values.sizing.profile | default "custom" | quote }}
-{{- with (index .Values.env "ROKSBNKCTL_MANIFEST_VERSION") }}
+{{- with (include "bnk.manifestVersion" .) }}
 roksbnkctl.io/bnk-version: {{ . | quote }}
 {{- end }}
+{{- end }}
+
+{{/* config mode = a non-empty .Values.config */}}
+{{- define "bnk.configMode" -}}{{ if .Values.config }}true{{ else }}false{{ end }}{{- end }}
+
+{{/* The workspace config with the sizing profile merged in (config mode only). */}}
+{{- define "bnk.effectiveConfig" -}}
+{{- $cfg := deepCopy .Values.config -}}
+{{- $profiles := dict
+  "baseline" (dict "wpz" 1 "flavor" "bx2.16x64" "tmm" 1)
+  "small"    (dict "wpz" 2 "flavor" "bx2.8x32"  "tmm" 3)
+  "medium"   (dict "wpz" 2 "flavor" "cx2.16x32" "tmm" 3)
+  "large"    (dict "wpz" 3 "flavor" "cx2.48x96" "tmm" 9) -}}
+{{- $profile := .Values.sizing.profile | default "custom" -}}
+{{- if hasKey $profiles $profile -}}
+{{- $p := get $profiles $profile -}}
+{{- $cl := (get $cfg "cluster") | default dict -}}
+{{- $_ := set $cl "workers_per_zone" (get $p "wpz") -}}
+{{- $_ := set $cl "worker_flavor" (get $p "flavor") -}}
+{{- $_ := set $cfg "cluster" $cl -}}
+{{- $b := (get $cfg "bnk") | default dict -}}
+{{- $_ := set $b "tmm_replicas" (get $p "tmm") -}}
+{{- $_ := set $b "cneinstance_size" .Values.sizing.deploymentSize -}}
+{{- $_ := set $cfg "bnk" $b -}}
+{{- end -}}
+{{- toYaml $cfg -}}
+{{- end }}
+
+{{/* cluster.create / cluster.name: from config in config mode, else from values */}}
+{{- define "bnk.clusterCreate" -}}
+{{- if .Values.config -}}{{ if (dig "cluster" "create" false .Values.config) }}true{{ else }}false{{ end }}{{- else -}}{{ if .Values.cluster.create }}true{{ else }}false{{ end }}{{- end -}}
+{{- end }}
+{{- define "bnk.clusterName" -}}
+{{- if .Values.config -}}{{ dig "cluster" "name" "" .Values.config }}{{- else -}}{{ .Values.cluster.name }}{{- end -}}
+{{- end }}
+{{- define "bnk.manifestVersion" -}}
+{{- if .Values.config -}}{{ dig "bnk" "manifest_version" "" .Values.config }}{{- else -}}{{ index .Values.env "ROKSBNKCTL_MANIFEST_VERSION" | default "" }}{{- end -}}
 {{- end }}
 
 {{- define "bnk.image" -}}
@@ -141,6 +178,11 @@ volumeMounts:
     mountPath: /signal
   - name: tmp
     mountPath: /tmp
+  {{- if .Values.config }}
+  - name: config
+    mountPath: {{ .Values.workspaceConfig.mountPath }}
+    readOnly: true
+  {{- end }}
 {{- end }}
 
 {{/*
@@ -203,6 +245,11 @@ spec:
           emptyDir: {}
         - name: tmp
           emptyDir: {}
+        {{- if $r.Values.config }}
+        - name: config
+          configMap:
+            name: {{ $r.Values.workspaceConfig.configMapName }}
+        {{- end }}
       containers:
         - name: {{ .name }}
           {{- include "bnk.runnerContainer" $r | nindent 10 }}

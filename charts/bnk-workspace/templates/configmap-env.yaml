@@ -20,7 +20,7 @@
 {{- /* deploymentSize: Tiny is the only profile that runs on ROKS on the 2.4 line */ -}}
 {{- $_ := set $sized "ROKSBNKCTL_CNEINSTANCE_SIZE" .Values.sizing.deploymentSize }}
 {{- $requested := (index .Values.env "ROKSBNKCTL_CNEINSTANCE_SIZE") | default .Values.sizing.deploymentSize | toString }}
-{{- if and (eq (toString .Values.line) "2.4") (ne $requested "Tiny") (not .Values.sizing.allowNonTinyDeploymentSize) }}
+{{- if and (not .Values.config) (eq (toString .Values.line) "2.4") (ne $requested "Tiny") (not .Values.sizing.allowNonTinyDeploymentSize) }}
 {{- fail (printf "ROKSBNKCTL_CNEINSTANCE_SIZE=%q: on ROKS the BNK 2.4 deploymentSize must stay Tiny — every larger profile requests hugepages that ROKS workers cannot provide and the install fails silently. Choose capacity with sizing.profile (small|medium|large) instead, or set sizing.allowNonTinyDeploymentSize=true if you really know better." $requested) }}
 {{- end }}
 {{- $derived := dict
@@ -30,6 +30,19 @@
 -}}
 {{- if ne .Values.registry.mode "none" }}
 {{- $_ := set $derived "ROKSBNKCTL_REGISTRY_TARGET" .Values.registry.target }}
+{{- end }}
+{{- if .Values.config }}
+{{- /* config mode: the config.yaml carries the workspace; env only gets what the hooks read */ -}}
+{{- $sized = dict }}
+{{- $derived = dict
+  "ROKSBNKCTL_CLUSTER_CREATE" (include "bnk.clusterCreate" .)
+  "ROKSBNKCTL_CLUSTER_NAME" (include "bnk.clusterName" .)
+  "ROKSBNKCTL_MANIFEST_VERSION" (include "bnk.manifestVersion" .)
+  "REGISTRY_COS_NAME" .Values.cluster.registryCosName
+-}}
+{{- if ne .Values.registry.mode "none" }}
+{{- $_ := set $derived "ROKSBNKCTL_REGISTRY_TARGET" .Values.registry.target }}
+{{- end }}
 {{- end }}
 {{- $env := mergeOverwrite (dict) $sized $derived .Values.env }}
 apiVersion: v1

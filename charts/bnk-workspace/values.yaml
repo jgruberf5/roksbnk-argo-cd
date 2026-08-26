@@ -130,10 +130,41 @@ serviceAccount:
   name: bnk-runner
   annotations: {}
 
-# non-secret roksbnkctl settings → ConfigMap (ROKSBNKCTL_* keys, see
-# roksbnkctl book ch. 07a / internal/config/envoverride.go). Chart-derived keys
-# (CLUSTER_CREATE, CLUSTER_NAME, REGISTRY_TARGET, REGISTRY_COS_NAME) are merged
-# underneath; anything set here wins.
+# ---------------------------------------------------------------------------
+# DESCRIBING THE WORKSPACE — two styles, pick one per overlay.
+#
+# config:  roksbnkctl's native config.yaml, verbatim (the schema `roksbnkctl init
+#          example` prints). The chart renders it into the bnk-config ConfigMap,
+#          mounts it at /config, and the init hook runs
+#            roksbnkctl init -w <ws> --config-file /config/config.yaml --override-from-env
+#          Preferred: it is the same file the roksbnkctl book documents, it diffs
+#          cleanly in the Argo CD UI, and it can carry blocks env cannot (state:
+#          for the COS remote backend, bnk.network.zones, gateway:, …).
+#          The sizing profile merges into cluster.workers_per_zone /
+#          cluster.worker_flavor / bnk.tmm_replicas / bnk.cneinstance_size.
+#          NEVER put secrets in it: the API key and passwords come from
+#          bnk-secrets through the environment, which init applies on top.
+#
+# env:     ROKSBNKCTL_* keys → the bnk-env ConfigMap; init runs
+#            roksbnkctl init -w <ws> --non-interactive --override-from-env
+#          Kept for CI-style setups that already speak ROKSBNKCTL_*.
+#
+# With config: set, env: is still applied (secrets, STUB_* knobs, one-off
+# overrides) but the chart only derives ROKSBNKCTL_CLUSTER_CREATE / _CLUSTER_NAME /
+# _MANIFEST_VERSION / REGISTRY_COS_NAME / _REGISTRY_TARGET from it for the hooks.
+# ---------------------------------------------------------------------------
+config: {}
+#  ibmcloud: {region: us-east, resource_group: default}
+#  prefix: my-ws
+#  tf_source: {type: embedded}
+#  cluster: {create: false, name: my-roks, openshift_version: "4.21", network_mode: single-nic}
+#  resources: {transit_gateway: {create: false, existing: my-tgw}}
+#  bnk: {manifest_version: 2.4.0-EA, far_auth_file: f5-far-auth-key.tgz, subscription_jwt_file: subscription.jwt}
+#  cos: {instance: bnk-supply-chain, bucket: my-bucket, region: us-south}
+workspaceConfig:
+  configMapName: bnk-config
+  mountPath: /config
+
 env:
   configMapName: bnk-env
   # ROKSBNKCTL_REGION: us-south
