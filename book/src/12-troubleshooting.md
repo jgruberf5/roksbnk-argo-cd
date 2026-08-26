@@ -27,6 +27,11 @@ tree. The message names the hook:
 | `preflight: BNK line change 2.3 -> 2.4 is refused` | the manifest version crosses lines on an applied workspace | `lifecycle: down`, sync, then change it |
 | `Job was active longer than specified deadline` on `bnk-init` and nothing else ran | the hook could not start — pod events show a missing ServiceAccount or PVC | the chart's waves prevent this; check that nothing renamed `storage.claimName` or `serviceAccount.name` between syncs |
 
+A version bump with `upgrade.strategy: refuse` produces the same shape — the
+gate stops the sync and the previous `bnk-up` Job is untouched. With the
+default `down-then-up` the same bump is accepted and the `bnk-up` log shows
+`bnk down` completing before `bnk up` starts.
+
 This is what a gate failure looks like in the UI (from the kind verification
 run, where the mirror was deliberately left incomplete):
 
