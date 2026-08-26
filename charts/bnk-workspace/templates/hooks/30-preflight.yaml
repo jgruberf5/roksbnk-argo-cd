@@ -39,7 +39,7 @@ fi
 # guardCreateTimeSettings: a 2.3 <-> 2.4 line flip against an applied workspace is refused
 applied="$HOME_WS/state/terraform.applied.tfvars"
 if [ -f "$applied" ] && [ -n "${ROKSBNKCTL_MANIFEST_VERSION:-}" ]; then
-  want=$(printf '%s' "$ROKSBNKCTL_MANIFEST_VERSION" | cut -d. -f1-2)
+  want=$(printf '%%s' "$ROKSBNKCTL_MANIFEST_VERSION" | cut -d. -f1-2)
   have=$(sed -n 's/^ *bnk_line *= *"\([^"]*\)".*/\1/p' "$applied" | head -1)
   if [ -n "$have" ] && [ "$have" != "$want" ]; then
     fail "BNK line change $have -> $want is refused on an applied workspace (bnk down first)"
