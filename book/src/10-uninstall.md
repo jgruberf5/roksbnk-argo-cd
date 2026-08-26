@@ -88,12 +88,16 @@ Destroy complete! Resources: 5 destroyed.
 [status] succeeded deployed=false — bnk down completed
 ```
 
-That log is what actually happened on `sm-cli`: the first destroy hit a
-namespace that would not finish terminating (an F5 custom resource with a
-finalizer whose controller was already gone), roksbnkctl cleared the finalizers,
-watched the namespace drain, and re-ran the destroy for the five resources
-that were left. Nothing for the operator to do — but it is worth recognising
-in the log rather than mistaking the first `Error:` for a failure.
+That log is what happens on every BNK 2.4 teardown today: Terraform deletes
+the `CNEInstance` without waiting for its finalizers, removes the F5 Lifecycle
+Operator three seconds later, and the `f5-bnk` namespace then cannot finish
+terminating because the controller that would clear two F5 custom resources
+is gone. After the kubernetes provider's five-minute timeout roksbnkctl clears
+those finalizers, watches the namespace drain, and re-runs the destroy for the
+five resources that were left. Nothing for the operator to do — but it is
+worth recognising in the log rather than mistaking the first `Error:` for a
+failure. (The ordering fix belongs in roksbnkctl's Terraform and is tracked in
+the repository's roadmap.)
 
 `bnk down` tears the phases down in reverse-dependency order, then sweeps the
 things Terraform cannot see: F5's validating webhook, the licence secrets in
