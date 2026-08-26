@@ -4,6 +4,11 @@ kind: Application
 metadata:
   name: bnk-sm-cli
   namespace: argocd
+  labels:
+    roksbnkctl.io/bnk-version: 2.4.0-EA      # ROKSBNKCTL_MANIFEST_VERSION in the overlay
+    roksbnkctl.io/line: "2.4"
+    roksbnkctl.io/sizing-profile: small       # sizing.profile in the overlay (F5 cluster size)
+    roksbnkctl.io/cluster: sm-cli
   finalizers:
     - resources-finalizer.argocd.argoproj.io   # delete → PreDelete hook runs bnk down first
 spec:

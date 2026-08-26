@@ -4,7 +4,7 @@
 //
 // Steps:
 //   login                 the login page, filled in (then signs in)
-//   apps                  the Applications list
+//   apps[:suffix]         the Applications list (apps:after-delete → 02-applications-after-delete.png)
 //   app                   the Application tree view
 //   app:<suffix>          same, saved as app-<suffix>.png (e.g. app:syncing, app:healthy)
 //   sync-panel            the Sync panel opened over the tree
@@ -12,7 +12,8 @@
 //   logs:<job>[:<suffix>] the Logs tab of a hook Job, scrolled to the end
 //   settings-repos        Settings → Repositories (connection status)
 //   settings-projects     Settings → Projects
-//   delete-dialog         the Delete dialog over the Application
+//   delete-dialog         the Delete dialog over the Application (cancelled)
+//   delete-confirm        types the Application name into the Delete dialog and confirms (Foreground) — really deletes it
 //   details-sources       Details → Sources (multi-source app: the Helm values / parameter overrides live here)
 //   details-sources:<sfx> same, saved as details-sources-<sfx>.png
 //
@@ -110,7 +111,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     try {
       if (kind === 'login') { await login(true); continue; }
       await ensureLogin();
-      if (kind === 'apps') { await goto(`${base}/applications`); await shot('02-applications'); }
+      if (kind === 'apps') { await goto(`${base}/applications`); await shot(rest[0] ? `02-applications-${rest[0]}` : '02-applications'); }
       else if (kind === 'app') { await goto(appUrl()); await shot(rest[0] ? `app-${rest[0]}` : '03-app'); }
       else if (kind === 'sync-panel') {
         await goto(appUrl());
@@ -159,6 +160,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         await sleep(2000);
         await shot(rest[0] ? `details-sources-${rest[0]}` : 'details-sources');
         await page.keyboard.press('Escape');
+      }
+      else if (kind === 'delete-confirm') {
+        await goto(appUrl());
+        await clickText('button', 'delete'); await sleep(1500);
+        const input = await page.$('.modal input[type=text], .argo-modal input, div[class*="modal"] input[type=text], input[qe-id*="delete"], input');
+        if (input) { await input.click(); await page.keyboard.type(app); }
+        await sleep(600);
+        await shot('delete-confirm');
+        await page.evaluate(() => { const b = Array.from(document.querySelectorAll('button')).find(x => /^\s*ok\s*$/i.test(x.textContent || '')); if (b) b.click(); });
+        await sleep(3000);
+        await shot('delete-deleting');
       }
       else if (kind === 'delete-dialog') {
         await goto(appUrl());

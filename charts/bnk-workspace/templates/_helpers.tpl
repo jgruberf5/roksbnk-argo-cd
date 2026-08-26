@@ -7,6 +7,11 @@ app.kubernetes.io/name: bnk-workspace
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 roksbnkctl.io/workspace: {{ .Values.workspace | quote }}
+roksbnkctl.io/line: {{ .Values.line | quote }}
+roksbnkctl.io/sizing-profile: {{ .Values.sizing.profile | default "custom" | quote }}
+{{- with (index .Values.env "ROKSBNKCTL_MANIFEST_VERSION") }}
+roksbnkctl.io/bnk-version: {{ . | quote }}
+{{- end }}
 {{- end }}
 
 {{- define "bnk.image" -}}

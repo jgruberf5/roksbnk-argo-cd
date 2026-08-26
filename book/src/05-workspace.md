@@ -136,6 +136,11 @@ kind: Application
 metadata:
   name: bnk-sm-cli
   namespace: argocd
+  labels:                                                # what this Application is, at a glance
+    roksbnkctl.io/bnk-version: 2.4.0-EA
+    roksbnkctl.io/line: "2.4"
+    roksbnkctl.io/sizing-profile: small
+    roksbnkctl.io/cluster: sm-cli
   finalizers: [resources-finalizer.argocd.argoproj.io]   # delete → PreDelete hook (bnk down) first
 spec:
   project: bnk
@@ -169,8 +174,18 @@ git commit -m "sm-cli workspace" && git push
 kubectl apply -f apps/sm-cli-application.yaml
 ```
 
+The labels are the convention this book uses to tell Applications apart in
+the UI: the BNK version (`ROKSBNKCTL_MANIFEST_VERSION`), the line, the F5
+cluster size (`sizing.profile`) and the target cluster. Argo CD shows them on
+the Application, lets you filter the Applications list by them (**Labels**
+filter, or `?labels=roksbnkctl.io/sizing-profile=small` in the URL), and the
+chart stamps the same `roksbnkctl.io/*` labels on every resource it renders,
+so `kubectl get all -l roksbnkctl.io/bnk-version=2.4.0-EA` works on the hub
+too. Keep them in step with the overlay — they are documentation, not input.
+
 For a fleet, add the workspace to `apps/applicationset-workspaces.yaml`
-instead; the ApplicationSet renders the same Application per entry.
+instead; the ApplicationSet renders the same Application per entry, labels
+included (each list element carries `bnkVersion`, `line`, `size`, `cluster`).
 
 The Application appears **OutOfSync** — Argo CD has rendered the chart and
 listed every resource and hook it would create, but nothing is applied yet.

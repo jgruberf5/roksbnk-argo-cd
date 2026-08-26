@@ -14,11 +14,42 @@ spec:
         elements:
           - workspace: bnkconn
             server: https://kubernetes.default.svc
+            bnkVersion: 2.4.0-EA
+            line: "2.4"
+            size: small
+            cluster: my-existing-roks
           - workspace: bnkdisco
             server: https://kubernetes.default.svc
+            bnkVersion: 2.4.0-EA
+            line: "2.4"
+            size: small
+            cluster: bnk-cid
+          - workspace: bnk-small
+            server: https://kubernetes.default.svc
+            bnkVersion: 2.4.0-EA
+            line: "2.4"
+            size: small
+            cluster: bnk-small
+          - workspace: bnk-medium
+            server: https://kubernetes.default.svc
+            bnkVersion: 2.4.0-EA
+            line: "2.4"
+            size: medium
+            cluster: bnk-medium
+          - workspace: bnk-large
+            server: https://kubernetes.default.svc
+            bnkVersion: 2.4.0-EA
+            line: "2.4"
+            size: large
+            cluster: bnk-large
   template:
     metadata:
       name: "bnk-{{ .workspace }}"
+      labels:
+        roksbnkctl.io/bnk-version: "{{ .bnkVersion }}"
+        roksbnkctl.io/line: "{{ .line }}"
+        roksbnkctl.io/sizing-profile: "{{ .size }}"
+        roksbnkctl.io/cluster: "{{ .cluster }}"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:

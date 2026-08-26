@@ -39,7 +39,6 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     {{- include "bnk.labels" . | nindent 4 }}
-    roksbnkctl.io/sizing-profile: {{ $profile | quote }}
     # hooks are not part of Argo CD's diff; carrying the lifecycle on a regular
     # resource makes a lifecycle flip show as OutOfSync instead of silently Synced
     roksbnkctl.io/lifecycle: {{ .Values.lifecycle | quote }}
