@@ -26,3 +26,11 @@ outcome=succeeded deployed=true post-sync bnk status captured
     [status] succeeded deployed=true — bnk up completed
 
 == 5c. upgrade.strategy=refuse + bump → 2.4.2-0.0.1, sync (expect preflight refusal, no new bnk-up)
+Failed|OutOfSync|Degraded
+outcome=failed deployed=true sync failed (hooks: bnk-preflight) — preflight: BNK version change 2.4.1-0.0.1 -> 2.4.2-0.0.1 on an applied workspace: BNK does not support in-place upgrades. Set lifecycle: down and sync, change the version, set lifecycle: up and sync (upgrade.strategy=refuse); logs: kubectl -n bnk-kindstub logs -l roksbnkctl.io/workspace=kindstub --tail=200
+
+## job/bnk-preflight (refuse)
+    preflight: BNK version change 2.4.1-0.0.1 -> 2.4.2-0.0.1 on an applied workspace: BNK does not support in-place upgrades. Set lifecycle: down and sync, change the version, set lifecycle: up and sync (upgrade.strategy=refuse)
+    [status] failed deployed=true — preflight: BNK version change 2.4.1-0.0.1 -> 2.4.2-0.0.1 on an applied workspace: BNK does not support in-place upgrades. Set lifecycle: down and sync, change the version, set lifecycle: up and sync (upgrade.strategy=refuse)
+
+## bnk-up untouched: start time before=2026-08-26T11:07:32Z after=2026-08-26T11:07:32Z
