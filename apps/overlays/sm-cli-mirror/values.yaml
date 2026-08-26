@@ -1,0 +1,71 @@
+# sm-cli-mirror — the same ROKS 4.21 cluster as sm-cli, installed from a
+# private registry instead of F5's (an Artifactory at artifactory.grubernet.org
+# with the BNK 2.4.0-EA artifacts mirrored under bnk-mirror/) and licensed
+# through an F5 License Proxy that another workspace deployed. The cluster
+# reaches the proxy on its public address; the hub reaches it over the
+# transit gateway. BNK 2.4 "Small cluster" profile.
+workspace: sm-cli-mirror
+namespace: bnk-sm-cli-mirror
+lifecycle: up
+topology: hub
+sizing:
+  profile: small               # → workers_per_zone=2, worker_flavor=bx2.8x32, tmm_replicas=3, cneinstance_size=Tiny
+runner:
+  tag: v1.55.1
+  runAsUser: 1000              # k3s hub, not OpenShift — pin the runner's uid
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 3Gi}
+storage:
+  size: 8Gi
+  storageClassName: local-path # k3s default on the hub VSI
+secrets:
+  mode: existing               # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD (the registry token)
+registry:
+  adoptArgs: --verify-contents # prove the mirror holds every 2.4.0-EA artifact before recording it
+
+config:                        # roksbnkctl config.yaml
+  ibmcloud:
+    region: us-east
+    resource_group: default
+  prefix: sm-cli
+  tf_source:
+    type: embedded
+  cluster:
+    create: false              # attach to the existing cluster (cluster register)
+    name: sm-cli
+    openshift_version: "4.21"
+    network_mode: single-nic
+  resources:
+    transit_gateway:
+      create: false
+      existing: sm-cli-tgw     # the gateway the cluster VPC is already on
+  registry:                    # the private registry — populated once with registry replicate, adopted here
+    target: generic
+    generic_host: artifactory.grubernet.org
+    generic_repo_prefix: bnk-mirror
+    generic_username: admin    # password = ROKSBNKCTL_GENERIC_PASSWORD in bnk-secrets
+                               # no generic_ca_b64: the registry's certificate is publicly trusted
+  bnk:
+    manifest_version: 2.4.0-EA
+    far_repo_url: repo.f5.com  # only used by registry adopt --verify-contents (the BOM comes from the source)
+    far_auth_file: non-ga-prod-pull-key.tgz
+    subscription_jwt_file: subscription.jwt
+    license_mode: f5licenseproxy
+    flp:
+      external:                # a proxy deployed elsewhere: endpoint + its root CA (public data)
+        url: https://52.116.120.163:8443
+        root_ca_b64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJmVENDQVNPZ0F3SUJBZ0lSQU9vU0JTZGpTS2VsajNDRm54dEpxRGd3Q2dZSUtvWkl6ajBFQXdJd0hqRUwKTUFrR0ExVUVDaE1DUmpVeER6QU5CZ05WQkFNVEJtWnNjQzVqWVRBZUZ3MHlOakE0TWpFeU1EQTBOVFZhRncwegpOakE0TVRneU1EQTBOVFZhTUI0eEN6QUpCZ05WQkFvVEFrWTFNUTh3RFFZRFZRUURFd1ptYkhBdVkyRXdXVEFUCkJnY3Foa2pPUFFJQkJnZ3Foa2pPUFFNQkJ3TkNBQVFkcDdLbkNkeUt4NkdXbjNvVkVrbjhVWXF3RlNYcndGcXQKWjJlSjFoQlluVkduT0t0bTZ5MG9MVWVMbDMrMCtJUHc4RE9zY3NLMXpGTzl4L3pSczFVVm8wSXdRREFPQmdOVgpIUThCQWY4RUJBTUNBUVl3RHdZRFZSMFRBUUgvQkFVd0F3RUIvekFkQmdOVkhRNEVGZ1FVbjFWeWhiOExWSStrCjRkaHJ0L1FoYkJZbTNnQXdDZ1lJS29aSXpqMEVBd0lEU0FBd1JRSWhBTTF0azU4eXZBcUgwTlF6dmlQRkpwZS8KZmxRdGxhdHRKZUtUM2xYTTFzRmRBaUJqSmcvTmhFSnB4SHg2QU1zV2JSaE1QZ1ErU21pZzI5YTVTK0wyZmtoSQpvdz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  cos:
+    instance: bnk-supply-chain
+    bucket: bnk-artifacts-0b5a00334eaf
+    region: us-south
+
+timeouts:
+  init: 600
+  cluster: 1800
+  registry: 1800
+  preflight: 900
+  apply: 7200
+  status: 300
+  down: 5400

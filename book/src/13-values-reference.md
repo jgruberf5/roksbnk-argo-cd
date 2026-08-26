@@ -50,6 +50,7 @@ including the admin kubeconfig it fetches.
 |---|---|---|
 | `registry.mode` | derived | `adopt` when `config.registry` names a mirror (`bnk-registry` runs `registry adopt`), else `none` (pull from FAR). Set `replicate` when the pod can reach FAR and should populate the mirror itself. |
 | `registry.target` | `generic` | `icr` or `generic` (only when `mode` ≠ `none`). |
+| `registry.adoptArgs` | `""` | Extra flags for `registry adopt`: `--verify-contents` builds the BOM from the FAR source and digest-checks every artifact in the mirror before recording it (the record then carries the inventory); `--force` records a mirror whose catalogue cannot be listed. |
 
 The mirror itself — host, repository prefix, username, CA — is described in
 `config.registry` (roksbnkctl's schema); the password lives in `bnk-secrets`.

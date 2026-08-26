@@ -1,0 +1,45 @@
+# sm-cli-mirror (private registry + F5 License Proxy) on the Argo CD hub, written by hand (apps/applicationset-workspaces.yaml
+# derives the same Application — name, namespace, labels — from the overlay; use
+# that for anything beyond a single workspace). Manual sync — syncing IS the
+# "Apply this plan?" step.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bnk-sm-cli-mirror
+  namespace: argocd
+  labels:                                     # mirror the overlay: config.bnk.manifest_version, sizing.profile, config.cluster.name
+    roksbnkctl.io/bnk-version: 2.4.0-EA
+    roksbnkctl.io/line: "2.4"
+    roksbnkctl.io/sizing-profile: small
+    roksbnkctl.io/cluster: sm-cli
+    roksbnkctl.io/registry: artifactory.grubernet.org
+    roksbnkctl.io/license-mode: f5licenseproxy
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # delete → PreDelete hook runs bnk down first
+spec:
+  project: bnk
+  sources:
+    - repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
+      targetRevision: main
+      path: charts/bnk-workspace
+      helm:
+        releaseName: bnk-sm-cli-mirror
+        valueFiles:
+          - $values/apps/overlays/sm-cli-mirror/values.yaml
+    - repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bnk-sm-cli-mirror
+  ignoreDifferences:
+    - kind: ConfigMap
+      name: bnk-status
+      jsonPointers: ["/data"]
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - PruneLast=true
+    retry:
+      limit: 0

@@ -31,9 +31,12 @@ fi
 
 # FLP hand-off is mandatory in f5licenseproxy mode (bnk-flp-override.tfvars)
 if [ "${ROKSBNKCTL_LICENSE_MODE:-$(cfg_get bnk license_mode)}" = "f5licenseproxy" ]; then
-  if [ -z "${ROKSBNKCTL_FLP_EXTERNAL_URL:-}" ] || [ -z "${ROKSBNKCTL_FLP_ROOT_CA_B64:-}" ]; then
-    [ -f "$HOME_WS/flp-outputs.json" ] || fail "license_mode=f5licenseproxy but no FLP hand-off: set ROKSBNKCTL_FLP_EXTERNAL_URL + ROKSBNKCTL_FLP_ROOT_CA_B64 or run flp up first"
+  # the hand-off is one of: config.bnk.flp.external (url + root_ca_b64), the env pair, or flp-outputs.json from flp up
+  ext=$(awk '/^bnk:/{b=1;next} b&&/^[^ ]/{b=0} b&&/^ +external:/{e=1;next} e&&/^ +url: *[^ ]/{print "yes";exit}' "$CFG" 2>/dev/null)
+  if [ "$ext" != "yes" ] && { [ -z "${ROKSBNKCTL_FLP_EXTERNAL_URL:-}" ] || [ -z "${ROKSBNKCTL_FLP_ROOT_CA_B64:-}" ]; }; then
+    [ -f "$HOME_WS/flp-outputs.json" ] || fail "license_mode=f5licenseproxy but no FLP hand-off: set config.bnk.flp.external (url + root_ca_b64) or run flp up first"
   fi
+  echo "preflight: FLP hand-off present ($( [ "$ext" = yes ] && echo config.bnk.flp.external || echo flp-outputs.json ))"
 fi
 
 # guardCreateTimeSettings: a 2.3 <-> 2.4 line flip against an applied workspace is refused

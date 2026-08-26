@@ -68,6 +68,8 @@ registry:
   mode: ""                     # blank = adopt when config.registry names a mirror, else none;
                                # adopt (mirror populated elsewhere) | replicate (pod can reach FAR) | none
   target: generic              # icr | generic (replicate only)
+  adoptArgs: ""                # extra flags for `registry adopt`, e.g. --verify-contents (digest-check every
+                               # BOM artifact against the FAR source before recording) or --force
 
 # ---------------------------------------------------------------------------
 # UPGRADES. BNK 2.3 and 2.4 do not support in-place upgrades: the supported path

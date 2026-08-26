@@ -13,7 +13,7 @@ failed hook is never retried silently — you re-sync).
 | `bnk-init` | Sync / −4 | `roksbnkctl init -w $WS --config-file /config/config.yaml --override-from-env` (the file, then the Secret on top) · `roksbnkctl version` · `roksbnkctl -w $WS doctor` | `init` |
 | `bnk-cluster` | Sync / −3 | `cluster register <config.cluster.name> --registry-cos-name …` **or** `cluster up --auto` (`config.cluster.create: true`), then `kubeconfig --download` | `cluster` |
 | `bnk-flp` | Sync / −3 | `flp up --auto` · `flp status` (only with `flp.deploy: true`) | `flp` |
-| `bnk-registry` | Sync / −2 | `registry adopt` **or** `registry target` · `bom` · `replicate --target …` · `verify` (only when `registry.mode ≠ none`) | `registry` |
+| `bnk-registry` | Sync / −2 | `registry adopt [registry.adoptArgs]` **or** `registry target` · `bom` · `replicate --target …` · `verify` (only when `registry.mode ≠ none`) | `registry` |
 | `bnk-preflight` | Sync / −1 | shell replica of the workspace-file guards, then `bnk status --json` | `preflight` |
 | `bnk-up` / `bnk-down` | Sync / 0 | `bnk up --auto` **or** `bnk down --auto`; writes `bnk-status` running → succeeded/failed | `apply` / `down` |
 | `bnk-status` | PostSync / 0 | `bnk status --json` → `bnk-status`; `bnk status` (human) | `status` |
