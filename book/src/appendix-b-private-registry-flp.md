@@ -191,12 +191,10 @@ PostSync       bnk-status      bnk status → bnk-status ConfigMap
 ![bnk-registry logs](images/mirror-logs-bnk-registry.png)
 
 ```text
-  ✓ recorded 94 artifacts with digests — `registry delete` can drive from this record
-  …
-  ✓ recorded 94 artifacts with digests — `registry delete` can drive from this record
 ✓ verified 94 artifacts against the source
   ⚠ no CA recorded for artifactory.grubernet.org — if it is a self-signed mirror, re-run with --registry-ca <file>
 ✓ adopted the mirror at artifactory.grubernet.org/bnk-mirror — `bnk up` will render against it
+  ✓ recorded 94 artifacts with digests — `registry delete` can drive from this record
 ```
 
 `--verify-contents` built the 2.4.0-EA bill of materials from `repo.f5.com`
