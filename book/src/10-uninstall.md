@@ -96,8 +96,8 @@ is gone. After the kubernetes provider's five-minute timeout roksbnkctl clears
 those finalizers, watches the namespace drain, and re-runs the destroy for the
 five resources that were left. Nothing for the operator to do — but it is
 worth recognising in the log rather than mistaking the first `Error:` for a
-failure. (The ordering fix belongs in roksbnkctl's Terraform and is tracked in
-the repository's roadmap.)
+failure. The ordering fix belongs in roksbnkctl's Terraform — tracked as
+[roksbnkctl#217](https://github.com/jgruberf5/roksbnkctl/issues/217).
 
 `bnk down` tears the phases down in reverse-dependency order, then sweeps the
 things Terraform cannot see: F5's validating webhook, the licence secrets in
