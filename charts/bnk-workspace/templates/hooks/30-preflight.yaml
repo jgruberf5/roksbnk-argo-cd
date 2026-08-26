@@ -8,7 +8,7 @@ fail() { write_status failed "$(deployed_now)" "preflight: $*"; echo "preflight:
 %s || fail "roksbnkctl preflight command failed"
 ` .Values.preflight.command }}
 {{- else }}
-{{- $script = `
+{{- $script = printf `
 # Shell replica of the workspace-file guards prepareBNKUp runs before
 # terraform plan (internal/orchestration/lifecycle.go). bnk up re-runs all of
 # them itself; this gate exists so a misconfiguration fails the sync in seconds
@@ -51,7 +51,7 @@ fi
 vc=$(version_change)
 if [ -n "$vc" ]; then
   set -- $vc
-  case "{{ .Values.upgrade.strategy }}" in
+  case "%s" in
     refuse) fail "BNK version change $1 -> $2 on an applied workspace: BNK does not support in-place upgrades. Set lifecycle: down and sync, change the version, set lifecycle: up and sync (upgrade.strategy=refuse)" ;;
     down-then-up) echo "preflight: BNK version change $1 -> $2 — no in-place upgrade exists; bnk-up will run bnk down, then bnk up (upgrade.strategy=down-then-up)" ;;
     *) fail "upgrade.strategy must be down-then-up or refuse" ;;
@@ -59,7 +59,7 @@ if [ -n "$vc" ]; then
 fi
 roksbnkctl -w "$WS" bnk status --json > /tmp/status.json || echo '{}' > /tmp/status.json
 echo "preflight: ok (deployed=$(deployed_now))"
-` }}
+` .Values.upgrade.strategy }}
 {{- end }}
 {{ include "bnk.hookJob" (dict "root" . "name" "bnk-preflight" "hook" "Sync" "wave" "-1" "deadline" .Values.timeouts.preflight "script" $script "cwc" false) }}
 {{- end }}
