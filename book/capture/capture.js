@@ -14,6 +14,7 @@
 //   settings-projects     Settings → Projects
 //   delete-dialog         the Delete dialog over the Application (cancelled)
 //   delete-confirm        types the Application name into the Delete dialog and confirms (Foreground) — really deletes it
+//   details-summary[:sfx] Details → Summary (project, labels, sync options)
 //   details-sources       Details → Sources (multi-source app: the Helm values / parameter overrides live here)
 //   details-sources:<sfx> same, saved as details-sources-<sfx>.png
 //
@@ -138,6 +139,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       }
       else if (kind === 'settings-repos') { await goto(`${base}/settings/repos`); await shot('settings-repositories'); }
       else if (kind === 'settings-projects') { await goto(`${base}/settings/projects`); await shot('settings-projects'); }
+      else if (kind === 'details-summary') {
+        await goto(appUrl());
+        await clickText('button', 'details'); await sleep(2000);
+        await shot(rest[0] ? `details-summary-${rest[0]}` : 'details-summary');
+        await page.keyboard.press('Escape');
+      }
       else if (kind === 'details-sources' || kind === 'details-params') {
         await goto(appUrl());
         await clickText('button', 'details'); await sleep(1500);

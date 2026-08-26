@@ -183,6 +183,8 @@ chart stamps the same `roksbnkctl.io/*` labels on every resource it renders,
 so `kubectl get all -l roksbnkctl.io/bnk-version=2.4.0-EA` works on the hub
 too. Keep them in step with the overlay — they are documentation, not input.
 
+![Details → Summary shows the Application's labels](images/details-summary-labelled.png)
+
 For a fleet, add the workspace to `apps/applicationset-workspaces.yaml`
 instead; the ApplicationSet renders the same Application per entry, labels
 included (each list element carries `bnkVersion`, `line`, `size`, `cluster`).

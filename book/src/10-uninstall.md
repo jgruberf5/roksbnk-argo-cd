@@ -110,30 +110,66 @@ To install again, set `lifecycle: up` and **Sync**.
 
 ## Option B — delete the Application
 
-**Applications → bnk-sm-cli → Delete**. Keep the propagation policy at
-**Foreground** (the default; *Non-cascading* would orphan the resources and skip
-the hook) and confirm with the Application's name:
+**Applications → bnk-sm-cli → Delete**. The dialog asks you to type the
+Application's name and to choose a propagation policy. Keep **Foreground**
+(the default): *Non-cascading* would orphan the resources and skip the hook.
 
-![The Delete dialog](images/delete-dialog.png)
+![The Delete dialog, name typed, Foreground selected](images/delete-confirm.png)
 
 Because the Application carries the `resources-finalizer.argocd.argoproj.io`
-finalizer and the chart renders a `PreDelete` hook, Argo CD:
+finalizer and the chart renders a `PreDelete` hook, clicking **OK** does not
+remove anything yet. Argo CD marks the Application for deletion and creates
+`bnk-predelete`, which runs `bnk down --auto`. The Application stays visible —
+*Deleting* — for as long as the destroy takes:
 
-1. creates `bnk-predelete`, which runs `bnk down --auto` (and, when the
-   overlay built the cluster with `teardown.cluster: true`, `tgw disconnect`
-   and `cluster down`);
-2. waits for it to finish — the Application stays visible, "Deleting", for the
-   duration;
-3. deletes the namespace resources, skipping the PVC.
+![The Application right after OK: deletion requested, PreDelete hook starting](images/delete-deleting.png)
 
-The PreDelete Job is removed together with the Application, so its logs are
-not retained in Argo CD; the evidence is in the namespace events and on the
-PVC. If you want the teardown log, use Option A first and delete afterwards.
+![The tree while bnk-predelete runs bnk down](images/app-deleting.png)
 
-From the CLI:
+Open **bnk-predelete → Logs** to follow the destroy. This is the one log that
+does not survive: Argo CD deletes the hook Job together with the Application,
+so read it while it runs, or save it — `kubectl -n bnk-sm-cli logs -f
+job/bnk-predelete` — before it is gone.
+
+![bnk-predelete logs while the destroy is running](images/logs-bnk-predelete-running.png)
+
+```text
+Plan: 0 to add, 0 to change, 37 to destroy.
+module.cne_instance.module.cneinstance.null_resource.validation_webhook_ready[0]: Destruction complete after 0s
+module.license.module.license.null_resource.cneinstance_available_24[0]: Destruction complete after 0s
+module.license.module.license.null_resource.license_active[0]: Destruction complete after 1s
+module.testing.null_resource.roks_cluster_gate: Destruction complete after 1s
+module.license.module.license.kubectl_manifest.bnk_license[0]: Destruction complete after 0s
+module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance_scc_policies["f5-bnk/flo-f5-lifecycle-operator"]: Destruction complete after 0s
+Error: context deadline exceeded
+  ⚠ namespace "f5-bnk" was stuck Terminating; cleared F5 finalizers on 2 object(s) and it drained.
+→ terraform destroy (retry, after freeing the stuck namespace)
+Plan: 0 to add, 0 to change, 5 to destroy.
+Destroy complete! Resources: 5 destroyed.
+✓ BNK phase destroyed. Cluster phase /work/.roksbnkctl/sm-cli/state-cluster/ is intact.
+```
+
+The same destroy as Option A — here it ran as the PreDelete hook, took about four and a half minutes on `sm-cli`, and included roksbnkctl's stuck-namespace recovery.
+
+When the hook completes, Argo CD deletes the managed resources — the hook Jobs,
+the ConfigMaps, the ServiceAccount and RBAC — skipping the PVC (`Delete=false`),
+and finally the Application itself. The list is empty again:
+
+![Applications after the delete](images/02-applications-after-delete.png)
+
+What is left in the namespace is exactly the PVC and the out-of-band Secret:
+
+```text
+persistentvolumeclaim/bnk-work   Bound   …   8Gi   RWO   local-path
+secret/bnk-secrets               Opaque  1
+```
+
+Re-creating the Application later (`kubectl apply -f apps/sm-cli-application.yaml`)
+and syncing finds the workspace on the PVC and installs again. From the CLI the
+whole delete is:
 
 ```bash
-argocd app delete bnk-sm-cli            # foreground cascade → PreDelete hook
+argocd app delete bnk-sm-cli            # foreground cascade → PreDelete hook → resources
 ```
 
 ## Which one to use

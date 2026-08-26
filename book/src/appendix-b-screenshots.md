@@ -35,6 +35,8 @@ ARGOCD_PASSWORD=… SHOT_SECRETS="$IBMCLOUD_API_KEY" APP_NS=bnk-sm-cli \
 | `logs:<job>[:suffix]` | `logs-<job>[-suffix].png` — the Job's Logs tab, scrolled to the end |
 | `res:<Kind>/<name>[:tab][:suffix]` | `res-<name>-<tab>.png` — a resource's panel (`summary`, `manifest`, `events`, `logs`) |
 | `settings-repos`, `settings-projects` | `settings-repositories.png`, `settings-projects.png` |
+| `details-summary[:suffix]` | `details-summary[-suffix].png` — Details → Summary (project, labels, sync options) |
+| `delete-confirm` | `delete-confirm.png` + `delete-deleting.png` — types the name, keeps Foreground, clicks **OK** — really deletes |
 | `details-sources[:suffix]` | `details-sources[-suffix].png` — Details → Sources with Source 1 expanded (Helm parameters / overrides) |
 | `delete-dialog` | `delete-dialog.png` |
 
