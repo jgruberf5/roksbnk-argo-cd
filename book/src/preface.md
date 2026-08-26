@@ -28,8 +28,8 @@ Part V is for the day after: re-syncs, upgrades, what to do when a gate fails.
 
 The reference section documents every chart value, every hook Job and the RBAC
 they need. Appendix A builds the Argo CD hub VSI in the IBM Cloud fabric;
-Appendix B is a worked overlay for a disconnected cluster — a private registry
-and an F5 License Proxy.
+Appendix B installs BNK from a private registry, licensed through an F5 License
+Proxy — the same cluster, a different supply chain.
 
 ## Conventions
 

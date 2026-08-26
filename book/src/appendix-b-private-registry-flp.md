@@ -1,170 +1,309 @@
 # Appendix B — Private registry and F5 License Proxy
 
-A disconnected cluster changes two things about a workspace: where the images
-and charts come from, and how BNK gets its licence. This appendix shows both in
-one overlay — a private registry (a Harbor on the Transit Gateway) and an F5
-License Proxy that the same workspace deploys before it installs BNK.
+Two things change when BNK must not pull from F5 directly: where the images and
+charts come from, and how BNK gets its licence. This appendix installs BNK 2.4
+on the same `sm-cli` cluster as Part II, but from a **private registry** (an
+Artifactory with the 2.4.0-EA artifacts mirrored) and licensed through an
+**F5 License Proxy** that lives outside the cluster. The workspace is
+`apps/overlays/sm-cli-mirror/values.yaml`; everything below was captured from
+that Application.
 
 ## The shape
 
 ```mermaid
 flowchart LR
-  subgraph hub["hub VPC (Argo CD)"]
-    argocd["Argo CD + hook Jobs<br/>runner image from the mirror"]
+  subgraph hub["hub VPC 10.250.0.0/24 (Argo CD)"]
+    argocd["Argo CD + hook Jobs<br/>runner from ghcr.io"]
   end
-  subgraph svc["services VPC"]
-    harbor["Harbor 10.240.0.4<br/>bnk-mirror/* (89 artifacts)"]
-    flp["F5 License Proxy VSI<br/>:8443, deployed by flp up"]
+  subgraph svc["services VPC 10.243.1.0/24"]
+    flp["F5 License Proxy VSI<br/>10.243.1.4 · 52.116.120.163 :8443"]
   end
-  subgraph cl["cluster VPC 10.247.0.0/16"]
-    roks["ROKS bnk-cid<br/>no public gateway"]
+  art["artifactory.grubernet.org<br/>bnk-mirror/images/* · bnk-mirror/charts/*"]
+  subgraph cl["cluster VPC"]
+    roks["ROKS sm-cli"]
   end
   tgw(("Transit Gateway<br/>bnkci-testing"))
   argocd --- tgw
-  harbor --- tgw
   flp --- tgw
-  roks --- tgw
   argocd -->|"bnk up"| roks
-  roks -->|"pull"| harbor
-  roks -->|"licence"| flp
+  argocd -->|"registry adopt"| art
+  roks -->|"pull (basic auth)"| art
+  roks -->|"licence (TLS, root CA)"| flp
 ```
 
-- The mirror was populated once with `roksbnkctl registry replicate` from a
-  host that can reach F5's registry; the workspace **adopts** it.
-- The proxy is deployed by the workspace itself (`flp up`, as a VSI in its own
-  small VPC on the gateway). Its endpoint and root CA land in the workspace as
-  `flp-outputs.json`, and `bnk up` uses them for the licence hand-off — nothing
-  to copy between workspaces.
-- The cluster's nodes never leave the fabric: images from the mirror, licence
-  from the proxy, and roksbnkctl installs the mirror's CA on every node before
-  the first pull.
+- The mirror was populated once, as a supply-chain step, with
+  `roksbnkctl registry replicate` from a host that can reach F5's registry.
+  It holds the 2.4.0-EA bill of materials in roksbnkctl's layout —
+  `bnk-mirror/images/<name>` and `bnk-mirror/charts/<name>` — behind a
+  publicly-trusted certificate and a user/token.
+- The proxy was deployed by another workspace (`flp up`). This workspace only
+  needs its **endpoint** and **root CA**, and gets them from
+  `config.bnk.flp.external` — no `flp-outputs.json`, no `flp up` of its own.
+- `bnk up` renders every chart and image reference against the mirror and
+  points the BNK `License` resource at the proxy. The cluster never talks to
+  `repo.f5.com` or to F5's licensing service.
 
 ## The overlay
 
-`apps/overlays/bnkdisco/values.yaml`:
+`apps/overlays/sm-cli-mirror/values.yaml`:
 
 ```yaml
-workspace: bnkdisco
-namespace: bnk-bnkdisco
+# sm-cli-mirror — the same ROKS 4.21 cluster as sm-cli, installed from a
+# private registry instead of F5's (an Artifactory at artifactory.grubernet.org
+# with the BNK 2.4.0-EA artifacts mirrored under bnk-mirror/) and licensed
+# through an F5 License Proxy that another workspace deployed. The cluster
+# reaches the proxy on its public address; the hub reaches it over the
+# transit gateway. BNK 2.4 "Small cluster" profile.
+workspace: sm-cli-mirror
+namespace: bnk-sm-cli-mirror
 lifecycle: up
 topology: hub
 sizing:
-  profile: small
+  profile: small               # → workers_per_zone=2, worker_flavor=bx2.8x32, tmm_replicas=3, cneinstance_size=Tiny
 runner:
-  image: 10.240.0.4/bnk-mirror/roksbnkctl-tools-runner   # the runner, mirrored
   tag: v1.55.1
-  runAsUser: 1000
-  imagePullSecrets:
-    - name: mirror-pull                  # only if the mirror project is not anonymous-pull
+  runAsUser: 1000              # k3s hub, not OpenShift — pin the runner's uid
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 3Gi}
 storage:
-  storageClassName: local-path
+  size: 8Gi
+  storageClassName: local-path # k3s default on the hub VSI
 secrets:
-  mode: existing                         # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD
-flp:
-  deploy: true                           # flp up runs before bnk up; bnk up consumes its hand-off
+  mode: existing               # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD (the registry token)
+registry:
+  adoptArgs: --force           # Artifactory answers the registry-wide /v2/_catalog with an empty list, so
+                               # adopt's "does the mirror hold anything under bnk-mirror/?" probe cannot see
+                               # the repositories; --force records the mirror anyway
 
-config:
+config:                        # roksbnkctl config.yaml
   ibmcloud:
     region: us-east
     resource_group: default
-  prefix: bnk-cid
+  prefix: sm-cli
   tf_source:
     type: embedded
   cluster:
-    create: false
-    name: bnk-cid
+    create: false              # attach to the existing cluster (cluster register)
+    name: sm-cli
     openshift_version: "4.21"
     network_mode: single-nic
   resources:
     transit_gateway:
       create: false
-      existing: bnkci-testing            # the gateway the cluster, the mirror and the proxy share
-  registry:                              # the private registry
+      existing: sm-cli-tgw     # the gateway the cluster VPC is already on
+  registry:                    # the private registry — populated once with registry replicate, adopted here
     target: generic
-    generic_host: 10.240.0.4
+    generic_host: artifactory.grubernet.org
     generic_repo_prefix: bnk-mirror
-    generic_username: admin
-    generic_ca_b64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t…   # the mirror's CA (PEM, base64)
-    generic_ca_sha256: sha256:ab12…
+    generic_username: admin    # password = ROKSBNKCTL_GENERIC_PASSWORD in bnk-secrets
+                               # no generic_ca_b64: the registry's certificate is publicly trusted
   bnk:
     manifest_version: 2.4.0-EA
-    far_auth_file: f5-far-auth-key.tgz
+    far_repo_url: repo.f5.com  # only used by registry adopt --verify-contents (the BOM comes from the source)
+    far_auth_file: non-ga-prod-pull-key.tgz
     subscription_jwt_file: subscription.jwt
     license_mode: f5licenseproxy
-    flp:                                 # the F5 License Proxy this workspace deploys
-      mode: vsi
-      vsi:
-        create_vpc: true
-        vpc_name: bnk-cid-flp-vpc
-        subnet_cidr: 10.248.0.0/24       # must not overlap anything on the gateway
-        zone: us-east-1
-        profile: bx2-4x16
-        ssh_key: bnk-hub-key
-        floating_ip: false               # reachable over the gateway only
-        licensing_allowed_cidrs: [10.247.0.0/16]   # the cluster VPC
-        management_allowed_cidrs: [10.250.0.0/24]  # the hub
+    flp:
+      external:                # a proxy deployed elsewhere: endpoint + its root CA (public data)
+        url: https://52.116.120.163:8443
+        root_ca_b64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJ…   # the proxy's CA, base64 PEM (772 chars)
   cos:
     instance: bnk-supply-chain
-    bucket: bnk-supply-chain
+    bucket: bnk-artifacts-0b5a00334eaf
     region: us-south
+
+timeouts:
+  init: 600
+  cluster: 1800
+  registry: 1800
+  preflight: 900
+  apply: 7200
+  status: 300
+  down: 5400
 ```
 
 What each part does:
 
 | | |
 |---|---|
-| `config.registry` | Names the mirror. Because it is present, the chart renders the `bnk-registry` hook, which runs `registry adopt` and records the mirror (`registry-mirror.json`) that `bnk up`'s guard requires. `generic_ca_b64` is the mirror's CA; `bnk up` installs it on every node and probes the registry from each before pulling. The password is `ROKSBNKCTL_GENERIC_PASSWORD` in `bnk-secrets`. |
-| `runner.image` / `imagePullSecrets` | The hub pulls the runner from the mirror too. Mirror it with the rest of the BOM (`registry replicate` covers the runner when asked), and add a pull Secret in the workspace namespace if the mirror project is private. |
+| `config.registry` | Names the mirror: host, repository prefix and user. Because it is present, the chart renders the `bnk-registry` hook, which runs `registry adopt` and records the mirror (`registry-mirror.json`) that `bnk up`'s guard requires. The password is `ROKSBNKCTL_GENERIC_PASSWORD` in `bnk-secrets`. There is no `generic_ca_b64` because the certificate is publicly trusted; a self-signed mirror adds its CA there (and `generic_ca_sha256` as the pin) and `bnk up` installs it on every node before the first pull. |
+| `registry.adoptArgs: --force` | Artifactory answers the registry-wide `/v2/_catalog` with an empty list (its repositories are listed per-repository), so adopt's "does the mirror hold anything under `bnk-mirror/`?" probe cannot see them. `--force` records the mirror anyway; the artifacts were verified by name when the mirror was populated. Leave it empty for a Harbor or Docker registry, whose catalogue works. |
 | `config.bnk.license_mode: f5licenseproxy` | BNK licenses through the proxy instead of F5's cloud. |
-| `config.bnk.flp` + `flp.deploy: true` | The workspace deploys the proxy: a `bx2-4x16` VSI in a new `/24` VPC attached to the same gateway, licensing port open to the cluster VPC, management port to the hub. The `bnk-flp` hook runs `flp up --auto` at wave −3 and writes `flp-outputs.json`; `bnk up` reads it. `flp.mode: helm` deploys the proxy into the cluster instead. |
-| `resources.transit_gateway.existing` | Everything is on one gateway: the hub, the mirror, the proxy and the cluster. Their prefixes — `10.250/24`, the services VPC, `10.248/24`, `10.247/16` — must not overlap. |
+| `config.bnk.flp.external` | The proxy's URL and root CA (base64 PEM). The CA is public data, so it lives in the overlay; the preflight gate refuses to run `bnk up` without both. A workspace that deploys its own proxy sets `flp.deploy: true` and `config.bnk.flp.{mode,vsi}` instead and gets the hand-off from `flp up`. |
+| `config.bnk.far_*` | Still named: `registry adopt --verify-contents` and `registry replicate` build the bill of materials from the F5 source, and the subscription is part of the licence. Neither is contacted by the cluster. |
+| `secrets.mode: existing` | `bnk-secrets` carries two keys here — the IBM Cloud API key and the registry token. |
+
+The Application is `apps/sm-cli-mirror-application.yaml` — the Part II
+Application with a different name, overlay and two extra labels
+(`roksbnkctl.io/registry`, `roksbnkctl.io/license-mode`) so the list view says
+where this BNK pulls from and how it licenses.
+
+![Details → Summary: the labels say which BNK, which size, which registry, which licence mode](images/mirror-details-summary.png)
+
+## Reaching the proxy
+
+The cluster's nodes must reach the proxy on **:8443**, and the proxy's
+certificate must name the address they use. Here the hub is on the same
+Transit Gateway as the proxy and uses its private address; the cluster's VPC is
+on a different gateway (its prefixes overlap another VPC on `bnkci-testing`),
+so it uses the proxy's public address, which is in the certificate's SAN, and
+the proxy's security group allows :8443 from the cluster's three public-gateway
+addresses only. Whichever path you use, check it from the hub before you sync —
+the same check `bnk up` will effectively make from every node:
+
+```bash
+base64 -d <<<"$ROOT_CA_B64" > flp-ca.pem
+curl --cacert flp-ca.pem https://52.116.120.163:8443/     # 400 {"message":"no matching operation was found"} = TLS ok
+```
+
+A `400` is the right answer: the proxy has no operation at `/`, but the TLS
+handshake verified against the root CA, which is all the licence helper needs.
 
 ## Secrets for this workspace
 
 ```bash
-kubectl create namespace bnk-bnkdisco
-printf '%s' "$IBMCLOUD_API_KEY"         | kubectl -n bnk-bnkdisco create secret generic bnk-secrets \
-  --from-file=IBMCLOUD_API_KEY=/dev/stdin
-kubectl -n bnk-bnkdisco patch secret bnk-secrets -p "{\"stringData\":{\"ROKSBNKCTL_GENERIC_PASSWORD\":\"$HARBOR_PASSWORD\"}}"
-kubectl -n bnk-bnkdisco create secret docker-registry mirror-pull \
-  --docker-server=10.240.0.4 --docker-username=admin --docker-password="$HARBOR_PASSWORD"
+kubectl create namespace bnk-sm-cli-mirror
+kubectl -n bnk-sm-cli-mirror create secret generic bnk-secrets \
+  --from-file=IBMCLOUD_API_KEY=<(printf '%s' "$IBMCLOUD_API_KEY") \
+  --from-file=ROKSBNKCTL_GENERIC_PASSWORD=<(printf '%s' "$ARTIFACTORY_TOKEN")
 ```
+
+`printf '%s'` matters: a trailing newline in either value is sent as part of
+the credential.
 
 ## What the sync runs
 
+![The Application before the first sync](images/mirror-app-outofsync.png)
+
 ```text
 Sync  wave -4  bnk-init        seed the workspace from config.yaml · doctor
-Sync  wave -3  bnk-cluster     cluster register bnk-cid · kubeconfig --download
-Sync  wave -3  bnk-flp         flp up --auto  → VSI, proxy, flp-outputs.json
-Sync  wave -2  bnk-registry    registry adopt → registry-mirror.json
+Sync  wave -3  bnk-cluster     cluster register sm-cli · kubeconfig --download
+Sync  wave -2  bnk-registry    registry adopt --force → registry-mirror.json
 Sync  wave -1  bnk-preflight   mirror record complete · FLP hand-off present
-Sync  wave  0  bnk-up          bnk up --auto: CA DaemonSet → cert-manager → FLO → CNEInstance → License (proxy)
+Sync  wave  0  bnk-up          bnk up --auto against the mirror, licence via the proxy
+PostSync       bnk-status      bnk status → bnk-status ConfigMap
 ```
 
-`bnk-preflight` checks the two things this topology adds: that the mirror
-record is complete (`missing_count: 0`) and that the proxy hand-off exists.
+### bnk-registry
 
-## A proxy shared by several clusters
+![bnk-registry logs](images/mirror-logs-bnk-registry.png)
 
-If one proxy serves several workspaces, deploy it in its own workspace
-(`flp.deploy: true`, no BNK) and point the others at it instead of deploying
-their own:
+```text
+  ⚠ could not list artifactory.grubernet.org to sanity-check the mirror: listing repositories on artifactory.grubernet.org: EOF
+  ⚠ no CA recorded for artifactory.grubernet.org — if it is a self-signed mirror, re-run with --registry-ca <file>
+✓ adopted the mirror at artifactory.grubernet.org/bnk-mirror — `bnk up` will render against it
+  note: no artifact inventory was recorded, so `registry delete` has nothing to remove for this workspace. Re-run with --verify-contents (needs the FAR source) to record one.
+```
+
+The first warning is the Artifactory catalogue (see `registry.adoptArgs`); the
+second is expected for a publicly-trusted certificate. The record is written
+and `bnk up` will render against `artifactory.grubernet.org/bnk-mirror`.
+
+### bnk-preflight
+
+```text
+preflight: FLP hand-off present (config.bnk.flp.external)
+preflight: ok (deployed=false)
+```
+
+### bnk-up
+
+![bnk-up running](images/mirror-logs-bnk-up-running.png)
+
+The lines that differ from a Part II install:
+
+```text
+→ FLP licensing: BNK will license via the F5 License Proxy — bnk.flp.external (a proxy in another cluster).
+…
+→ no registry CA recorded for artifactory.grubernet.org — assuming it is already trusted; checking reachability from every node
+  each target is retried for up to 180s before it is called unreachable (bnk.preflight.reachability_retry_seconds)
+  F5-License-Proxy: 6/6 nodes reachable
+    ✓ kube-…-000001c3 -> F5-License-Proxy (52.116.120.163:8443): dns=skipped-ip tcp=ok
+  registry: 6/6 nodes reachable
+    ✓ kube-…-000001c3 -> registry (artifactory.grubernet.org:443): dns=ok tcp=ok
+✓ artifactory.grubernet.org reachable from every node
+…
+              licenseProxyServerRootCaPath: /etc/cm20/licenseserver-rootca/licenseserver-rootca.txt
+              operationMode: f5licenseproxy
+              teemEntitlementUrl: https://52.116.120.163:8443/license-proxy/v1
+…
+Plan: 41 to add, 0 to change, 0 to destroy.
+Apply complete! Resources: 41 added, 0 changed, 0 destroyed.
+[status] succeeded deployed=true — bnk up completed
+```
+
+Two reachability probes run from every node before Terraform starts — one to
+the registry, one to the proxy — because "unreachable" is the failure that
+otherwise surfaces twenty minutes later as an `ImagePullBackOff`. The `License`
+resource carries `operationMode: f5licenseproxy`, the proxy URL and the path
+where the licence helper finds the root CA that `bnk up` mounted.
+
+The proof is on the cluster. Every image BNK runs came from the mirror — all
+27 of them, cert-manager's included:
+
+```text
+$ kubectl get pods -A -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.image}{"\n"}{end}{end}' | sort -u
+artifactory.grubernet.org/bnk-mirror/images/crd-conversion:v1.291.23
+artifactory.grubernet.org/bnk-mirror/images/crd-installer:v14.91.12-0.1.66
+artifactory.grubernet.org/bnk-mirror/images/crdupdater:v0.90.14-0.0.2
+artifactory.grubernet.org/bnk-mirror/images/f5-blobd:v1.25.5-0.0.2
+artifactory.grubernet.org/bnk-mirror/images/f5-cert-client:v3.9.5-0.0.2
+artifactory.grubernet.org/bnk-mirror/images/f5-coremond:v0.25.13-0.0.2
+…
+artifactory.grubernet.org/bnk-mirror/images/tmm-img:v10.204.15-0.0.45
+artifactory.grubernet.org/bnk-mirror/jetstack/cert-manager-cainjector:v1.17.3
+artifactory.grubernet.org/bnk-mirror/jetstack/cert-manager-controller:v1.17.3
+artifactory.grubernet.org/bnk-mirror/jetstack/cert-manager-webhook:v1.17.3
+```
+
+and the licence was granted through the proxy:
+
+```text
+$ kubectl get license -n f5-utils
+NAME          STATE    MODE             ENTITLEMENT   ENVIRONMENT   EXPIRY                 AGE
+bnk-license   Active   f5licenseproxy   eval          test          2026-09-25T19:22:04Z   4m27s
+```
+
+`bnk-status` then reports what Part II's did: `probe.cneinstance: Available=True`,
+`probe.flo: 1/1 ready`, `probe.cert-manager: 3/3 ready`.
+
+![Healthy, from the mirror, licensed through the proxy](images/mirror-app-healthy.png)
+
+## A proxy this workspace deploys
+
+If there is no proxy yet, the workspace can deploy one before it installs BNK:
+set `flp.deploy: true`, replace `config.bnk.flp.external` with the proxy's own
+description, and the `bnk-flp` hook runs `flp up --auto` at wave −3 and hands
+the endpoint and CA to `bnk up` through `flp-outputs.json`:
 
 ```yaml
+flp:
+  deploy: true
 config:
   bnk:
     license_mode: f5licenseproxy
     flp:
-      external:
-        url: https://10.248.0.4:8443
-        root_ca_b64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t…
+      mode: vsi
+      vsi:
+        create_vpc: true
+        vpc_name: sm-cli-flp-vpc
+        subnet_cidr: 10.248.0.0/24       # must not overlap anything on the gateway
+        zone: us-east-1
+        profile: bx2-4x16
+        ssh_key: bnk-hub-key
+        floating_ip: false               # reachable over the gateway only
+        licensing_allowed_cidrs: [10.241.0.0/16]   # the cluster VPC
+        management_allowed_cidrs: [10.250.0.0/24]  # the hub
 ```
 
-`root_ca_b64` is public data (the proxy's CA certificate), so it can live in
-the overlay.
+`lifecycle: down` or deleting the Application then runs `bnk down` followed by
+`flp down` (`teardown.flp: true`). The mirror is never touched either way: it
+belongs to the estate, not to the workspace.
 
 ## Teardown
 
-`lifecycle: down` or deleting the Application runs `bnk down` and then — for
-a proxy this workspace deployed — `flp down` (`teardown.flp: true`). The
-mirror is never touched: it belongs to the estate, not to the workspace.
+Exactly as in Part IV: set `lifecycle: down` and sync, or delete the
+Application. `bnk down` removes BNK from the cluster and its IBM Cloud pieces;
+the registry record and the proxy hand-off stay in the workspace on the PVC for
+the next `bnk up`.

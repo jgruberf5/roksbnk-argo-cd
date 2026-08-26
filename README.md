@@ -59,7 +59,7 @@ charts/bnk-workspace/           the Helm chart: substrate + hook Jobs (values.ya
 apps/
   applicationset-workspaces.yaml  one Application per overlay
   overlays/bnkconn/               connected cluster, in-target topology
-  overlays/bnkdisco/              disconnected cluster, hub topology (Harbor mirror, F5 License Proxy)
+  overlays/sm-cli-mirror/         sm-cli again, from a private registry (Artifactory) + an external F5 License Proxy
   overlays/kind-stub/             local verification
   kind-stub-application.yaml      local verification Application
 hack/
