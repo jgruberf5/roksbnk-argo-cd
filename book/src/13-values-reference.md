@@ -51,6 +51,12 @@ The runner always gets `ROKSBNKCTL_HOME=/work/.roksbnkctl`, `HOME=/home/runner`,
 The mirror host, prefix, username and CA go in `env` (`ROKSBNKCTL_GENERIC_*`);
 the password in `bnk-secrets` (`ROKSBNKCTL_GENERIC_PASSWORD`).
 
+## Upgrades
+
+| Value | Default | Meaning |
+|---|---|---|
+| `upgrade.strategy` | `down-then-up` | BNK 2.3/2.4 have no in-place upgrade. On a manifest-version change against an applied workspace: `down-then-up` runs `bnk down` then `bnk up` in the `bnk-up` hook; `refuse` fails the preflight gate and asks for an explicit `lifecycle: down` sync first. Never an in-place apply. |
+
 ## Gates
 
 | Value | Default | Meaning |

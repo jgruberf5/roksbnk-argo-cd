@@ -96,6 +96,9 @@ Block by block:
 - **`registry.mode: none`** — a connected cluster pulls BNK from `repo.f5.com`
   with the FAR pull key from the COS bucket. `adopt` or `replicate` are for a
   Harbor/Artifactory mirror (disconnected clusters).
+- **`ROKSBNKCTL_MANIFEST_VERSION`** selects the BNK version. Changing it later
+  is an upgrade, and BNK has no in-place upgrade: the Application runs
+  `bnk down` then `bnk up` (see [Day-2](11-day-2.md)).
 - **`env`** — the supply chain (COS instance, bucket, region, the two object
   names) and the cluster facts. The chart merges the profile and the
   chart-derived keys underneath; anything you set here wins.

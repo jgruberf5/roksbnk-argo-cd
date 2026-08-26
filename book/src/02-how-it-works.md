@@ -71,6 +71,12 @@ this workspace does not own", registry CA reachability from every node. The
 misconfiguration fails the sync in seconds rather than minutes into the
 Terraform apply. Nothing is skipped: the apply re-checks everything.
 
+One rule the chart adds on top of roksbnkctl's: **BNK 2.3 and 2.4 have no
+in-place upgrade**, so a manifest-version change against an installed
+workspace is turned into `bnk down` followed by `bnk up` (or refused, by
+`upgrade.strategy`). Terraform is never asked to mutate a running BNK into a
+different version.
+
 ## Health, status and the "Apply this plan?" prompt
 
 On a laptop, `bnk up` shows a Terraform plan and asks *Apply this plan?*. Under

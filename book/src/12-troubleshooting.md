@@ -23,6 +23,7 @@ tree. The message names the hook:
 | `preflight: a registry mirror is configured … but there is no record of it` | `registry.mode: none` yet a `ROKSBNKCTL_REGISTRY_TARGET` / `_GENERIC_HOST` reached the env | remove them, or set `registry.mode: adopt` |
 | `preflight: registry mirror incomplete: N artifacts missing` | the mirror is short of images | run `registry replicate` (or fix the mirror) and sync |
 | `preflight: license_mode=f5licenseproxy but no FLP hand-off` | FLP mode without `ROKSBNKCTL_FLP_EXTERNAL_URL` + `_ROOT_CA_B64` | add the hand-off Secret via `runner.extraEnvFrom` |
+| `preflight: BNK version change X -> Y on an applied workspace: BNK does not support in-place upgrades` | `upgrade.strategy: refuse` and the manifest version changed | set `lifecycle: down`, sync, change the version, set `lifecycle: up`, sync — or use `down-then-up` |
 | `preflight: BNK line change 2.3 -> 2.4 is refused` | the manifest version crosses lines on an applied workspace | `lifecycle: down`, sync, then change it |
 | `Job was active longer than specified deadline` on `bnk-init` and nothing else ran | the hook could not start — pod events show a missing ServiceAccount or PVC | the chart's waves prevent this; check that nothing renamed `storage.claimName` or `serviceAccount.name` between syncs |
 

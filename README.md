@@ -162,7 +162,7 @@ Delete the Application (PreDelete runs `bnk down --auto`, then the resources go;
 ### Day 2
 
 - **Re-sync** is idempotent: `bnk up` re-plans and applies nothing when the workspace is unchanged.
-- **Version bump**: change `ROKSBNKCTL_MANIFEST_VERSION` and sync. A 2.3 ↔ 2.4 line change on an applied workspace is refused by the gate (tear down first), as roksbnkctl itself does.
+- **Version bump = upgrade, and BNK 2.3/2.4 have no in-place upgrade**: change `ROKSBNKCTL_MANIFEST_VERSION` and sync; the `bnk-up` hook runs `bnk down` then `bnk up` (`upgrade.strategy: down-then-up`, the default) or the gate refuses and asks for an explicit `lifecycle: down` sync first (`refuse`). Terraform is never asked to change a running BNK in place.
 - **Stuck apply**: every hook has `activeDeadlineSeconds` (`timeouts.*`). Terminating the Argo CD operation does not kill the Job; wait for it or delete it, then sync again.
 - **One run at a time per workspace**: RWO PVC + Terraform lock, the same rule the Workflows demos had.
 
