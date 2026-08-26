@@ -70,19 +70,19 @@ Open **bnk-down → Logs** to follow the destroy live…
 ```text
 [status] running deployed=unknown — bnk down in progress
 …
-Plan: 0 to add, 0 to change, 37 to destroy.
+Plan: 0 to add, 0 to change, 36 to destroy.
 module.license.module.license.null_resource.cneinstance_available_24[0]: Destroying...
-module.license.module.license.kubectl_manifest.license[0]: Destroying...
+module.license.module.license.null_resource.license_active[0]: Destroying...
 …
-module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance[0]: Destruction complete
-module.flo.module.flo.helm_release.flo[0]: Destruction complete
+module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance[0]: Destruction complete after 0s
+module.flo.module.flo.helm_release.flo[0]: Destruction complete after 2s
 …
 Error: context deadline exceeded
   ⚠ namespace "f5-bnk" was stuck Terminating; cleared F5 finalizers on 2 object(s) and it drained.
 → terraform destroy (retry, after freeing the stuck namespace)
 Plan: 0 to add, 0 to change, 5 to destroy.
-module.flo.module.flo.ibm_iam_trusted_profile.cne_controller[0]: Destruction complete
-module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destruction complete
+module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destruction complete after 8s
+module.cert_manager.module.cert_manager.kubernetes_namespace_v1.cert_manager[0]: Destruction complete after 13s
 Destroy complete! Resources: 5 destroyed.
 ✓ BNK phase destroyed. Cluster phase /work/.roksbnkctl/sm-cli/state-cluster/ is intact.
 [status] succeeded deployed=false — bnk down completed

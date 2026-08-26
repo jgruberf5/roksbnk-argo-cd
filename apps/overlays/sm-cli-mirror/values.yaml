@@ -22,9 +22,11 @@ storage:
 secrets:
   mode: existing               # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD (the registry token)
 registry:
-  adoptArgs: --force           # Artifactory answers the registry-wide /v2/_catalog with an empty list, so
-                               # adopt's "does the mirror hold anything under bnk-mirror/?" probe cannot see
-                               # the repositories; --force records the mirror anyway
+  adoptArgs: ""                # registry adopt records the mirror as configured. Artifactory answers the
+                               # registry-wide /v2/_catalog with an empty response, so adopt cannot list
+                               # the repositories to sanity-check the prefix and says so (⚠) — that is a
+                               # warning, not a failure. --verify-contents (roksbnkctl newer than v1.55.1)
+                               # digest-checks every artifact against the F5 source instead.
 
 config:                        # roksbnkctl config.yaml
   ibmcloud:

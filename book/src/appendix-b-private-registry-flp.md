@@ -72,9 +72,11 @@ storage:
 secrets:
   mode: existing               # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD (the registry token)
 registry:
-  adoptArgs: --force           # Artifactory answers the registry-wide /v2/_catalog with an empty list, so
-                               # adopt's "does the mirror hold anything under bnk-mirror/?" probe cannot see
-                               # the repositories; --force records the mirror anyway
+  adoptArgs: ""                # registry adopt records the mirror as configured. Artifactory answers the
+                               # registry-wide /v2/_catalog with an empty response, so adopt cannot list
+                               # the repositories to sanity-check the prefix and says so (⚠) — that is a
+                               # warning, not a failure. --verify-contents (roksbnkctl newer than v1.55.1)
+                               # digest-checks every artifact against the F5 source instead.
 
 config:                        # roksbnkctl config.yaml
   ibmcloud:
@@ -128,7 +130,7 @@ What each part does:
 | | |
 |---|---|
 | `config.registry` | Names the mirror: host, repository prefix and user. Because it is present, the chart renders the `bnk-registry` hook, which runs `registry adopt` and records the mirror (`registry-mirror.json`) that `bnk up`'s guard requires. The password is `ROKSBNKCTL_GENERIC_PASSWORD` in `bnk-secrets`. There is no `generic_ca_b64` because the certificate is publicly trusted; a self-signed mirror adds its CA there (and `generic_ca_sha256` as the pin) and `bnk up` installs it on every node before the first pull. |
-| `registry.adoptArgs: --force` | Artifactory answers the registry-wide `/v2/_catalog` with an empty list (its repositories are listed per-repository), so adopt's "does the mirror hold anything under `bnk-mirror/`?" probe cannot see them. `--force` records the mirror anyway; the artifacts were verified by name when the mirror was populated. Leave it empty for a Harbor or Docker registry, whose catalogue works. |
+| `registry.adoptArgs` | Left empty: `registry adopt` records the mirror as configured. Artifactory answers the registry-wide `/v2/_catalog` with an empty response (its repositories are listed per-repository), so adopt cannot list them to sanity-check the prefix and says so with a ⚠ — a warning, not a failure. A Harbor or Docker registry answers the catalogue and adopt reports how many repositories it found. `--verify-contents` (roksbnkctl newer than v1.55.1) goes further: it builds the bill of materials from the F5 source and digest-checks every artifact in the mirror before recording it. |
 | `config.bnk.license_mode: f5licenseproxy` | BNK licenses through the proxy instead of F5's cloud. |
 | `config.bnk.flp.external` | The proxy's URL and root CA (base64 PEM). The CA is public data, so it lives in the overlay; the preflight gate refuses to run `bnk up` without both. |
 | `config.bnk.far_*` | Still named: `registry adopt --verify-contents` and `registry replicate` build the bill of materials from the F5 source, and the subscription is part of the licence. Neither is contacted by the cluster. |
@@ -179,7 +181,7 @@ the credential.
 ```text
 Sync  wave -4  bnk-init        seed the workspace from config.yaml · doctor
 Sync  wave -3  bnk-cluster     cluster register sm-cli · kubeconfig --download
-Sync  wave -2  bnk-registry    registry adopt --force → registry-mirror.json
+Sync  wave -2  bnk-registry    registry adopt → registry-mirror.json
 Sync  wave -1  bnk-preflight   mirror record complete · FLP hand-off present
 Sync  wave  0  bnk-up          bnk up --auto against the mirror, licence via the proxy
 PostSync       bnk-status      bnk status → bnk-status ConfigMap
@@ -196,9 +198,10 @@ PostSync       bnk-status      bnk status → bnk-status ConfigMap
   note: no artifact inventory was recorded, so `registry delete` has nothing to remove for this workspace. Re-run with --verify-contents (needs the FAR source) to record one.
 ```
 
-The first warning is the Artifactory catalogue (see `registry.adoptArgs`); the
-second is expected for a publicly-trusted certificate. The record is written
-and `bnk up` will render against `artifactory.grubernet.org/bnk-mirror`.
+The first warning is the Artifactory catalogue (see `registry.adoptArgs`
+above); the second is expected for a publicly-trusted certificate. Neither
+stops the hook: the record is written and `bnk up` will render against
+`artifactory.grubernet.org/bnk-mirror`.
 
 ### bnk-preflight
 
