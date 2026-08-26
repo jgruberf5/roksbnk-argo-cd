@@ -79,16 +79,43 @@ the password in `bnk-secrets` (`ROKSBNKCTL_GENERIC_PASSWORD`).
 | `secrets.externalSecret.*` | | `storeRef`, `refreshInterval`, `data[]` (`key` + `remoteRef`). |
 | `flpHandoff.writeSecret` / `secretName` | `false` / `flp-handoff` | Let the runner create/patch the F5 License Proxy hand-off Secret. |
 
-## Environment (`env`)
+## Workspace (`config`) — preferred
 
-Every key under `env` becomes an entry in the `bnk-env` ConfigMap and is read by
-`roksbnkctl init --non-interactive --override-from-env`. The chart merges four
-derived keys underneath (`ROKSBNKCTL_CLUSTER_CREATE`, `ROKSBNKCTL_CLUSTER_NAME`,
-`ROKSBNKCTL_REGISTRY_TARGET`, `REGISTRY_COS_NAME`); anything you set wins.
-Empty values are skipped by roksbnkctl, which is how a connected overlay can
-"blank" a mirror setting inherited from elsewhere.
+`config` is roksbnkctl's `config.yaml`, verbatim (`roksbnkctl init example`
+prints the schema; the roksbnkctl book's *Workspace config* chapter documents
+every key). The chart:
 
-The keys used in this book:
+- merges `sizing.profile` into `cluster.workers_per_zone`,
+  `cluster.worker_flavor`, `bnk.tmm_replicas`, `bnk.cneinstance_size`;
+- refuses `bnk.cneinstance_size` other than `Tiny` on the 2.4 line (unless
+  `sizing.allowNonTinyDeploymentSize`), and refuses any `api_key_b64` /
+  `*password_b64` key — secrets come from `bnk-secrets`;
+- renders it into the `bnk-config` ConfigMap (`workspaceConfig.configMapName`,
+  wave −10), mounts it at `workspaceConfig.mountPath` (`/config`), and runs
+  `init -w <ws> --config-file /config/config.yaml --override-from-env`;
+- reads `cluster.create`, `cluster.name` and `bnk.manifest_version` from it
+  for the hooks (which verb `bnk-cluster` runs, the version-change check, the
+  `roksbnkctl.io/bnk-version` label).
+
+Blocks worth knowing: `cluster` (create/register, version, `vpc_cidr`,
+`network_mode`), `resources.transit_gateway` (`create`/`existing`),
+`bnk` (`manifest_version`, FAR/JWT object names, `license_mode`, `flp`,
+`network.zones`), `cos` (the supply-chain bucket), `state` (COS remote-state
+backend), `gateway`, `registry`.
+
+## Environment (`env`) — alternative
+
+Every key under `env` becomes an entry in the `bnk-env` ConfigMap. Without
+`config`, init runs `--non-interactive --override-from-env` and the chart
+merges the sizing profile and four derived keys (`ROKSBNKCTL_CLUSTER_CREATE`,
+`ROKSBNKCTL_CLUSTER_NAME`, `ROKSBNKCTL_REGISTRY_TARGET`, `REGISTRY_COS_NAME`)
+underneath; anything you set wins. With `config`, env is still applied on top
+of the file — for secrets and one-off overrides — and the chart derives only
+`ROKSBNKCTL_CLUSTER_CREATE`, `_CLUSTER_NAME`, `_MANIFEST_VERSION`,
+`REGISTRY_COS_NAME` (and `_REGISTRY_TARGET`). Empty values are skipped by
+roksbnkctl.
+
+The env keys used by the env-style overlays:
 
 | Key | Example | |
 |---|---|---|

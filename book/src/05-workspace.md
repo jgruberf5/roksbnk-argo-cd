@@ -33,7 +33,13 @@ chart fills in the node count, the node flavour and the TMM pod count:
 
 ## The values file
 
-`apps/overlays/sm-cli/values.yaml`:
+`apps/overlays/sm-cli/values.yaml` has two halves. The top is Argo CD's
+concern — which hooks run, where, with what image and storage. The `config:`
+block is **roksbnkctl's own `config.yaml`**, verbatim: the same schema the
+roksbnkctl book documents and `roksbnkctl init example` prints. The chart
+renders it into a ConfigMap, mounts it at `/config`, and the init hook seeds
+the workspace from it. If you have run roksbnkctl on a laptop, you already
+know this file.
 
 ```yaml
 workspace: sm-cli              # roksbnkctl workspace name
@@ -42,89 +48,118 @@ lifecycle: up                  # up = install (bnk up); down = uninstall (bnk do
 topology: hub                  # Argo CD on a management cluster; in-target if it runs on the ROKS cluster
 line: "2.4"
 sizing:
-  profile: small               # 6× bx2.8x32, 3 TMM pods, deploymentSize Tiny
+  profile: small               # 6× bx2.8x32, 3 TMM pods, deploymentSize Tiny — merged into config below
 
 runner:
   tag: v1.54.0
   runAsUser: 1000              # k3s hub; leave unset on OpenShift
-
 cluster:
-  create: false                # install onto an existing cluster …
-  name: sm-cli                 # … this one (cluster register)
-  registryCosName: sm-cli-registry-cos
-
+  registryCosName: sm-cli-registry-cos   # cluster register --registry-cos-name
 registry:
   mode: none                   # connected: pull straight from F5's registry (FAR)
-
 storage:
   size: 8Gi
   storageClassName: local-path # ibmc-vpc-block-10iops-tier on ROKS
-
 secrets:
   mode: existing               # bnk-secrets was created in Step 1
 
-env:                           # every ROKSBNKCTL_* key roksbnkctl init accepts
-  ROKSBNKCTL_REGION: us-east
-  ROKSBNKCTL_RESOURCE_GROUP: default
-  ROKSBNKCTL_PREFIX: sm-cli
-  ROKSBNKCTL_OPENSHIFT_VERSION: "4.21"
-  ROKSBNKCTL_CLUSTER_NETWORK_MODE: single-nic
-  ROKSBNKCTL_TRANSIT_GATEWAY_NAME: sm-cli-tgw      # the gateway the cluster VPC is on
-  ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-EA            # selects the 2.4 line
-  ROKSBNKCTL_FAR_AUTH_FILE: non-ga-prod-pull-key.tgz
-  ROKSBNKCTL_SUBSCRIPTION_JWT_FILE: subscription.jwt
-  ROKSBNKCTL_COS_INSTANCE: bnk-supply-chain
-  ROKSBNKCTL_COS_BUCKET: bnk-artifacts-0b5a00334eaf
-  ROKSBNKCTL_COS_REGION: us-south
+config:                        # ← roksbnkctl config.yaml, as documented in the roksbnkctl book
+  ibmcloud:
+    region: us-east
+    resource_group: default
+  prefix: sm-cli
+  tf_source:
+    type: embedded
+  cluster:
+    create: false              # attach to an existing cluster (cluster register) …
+    name: sm-cli               # … this one
+    openshift_version: "4.21"
+    network_mode: single-nic
+  resources:
+    transit_gateway:
+      create: false
+      existing: sm-cli-tgw     # the gateway the cluster VPC is already on
+  bnk:
+    manifest_version: 2.4.0-EA           # selects the 2.4 line; changing it later = upgrade (down, then up)
+    far_repo_url: repo.f5.com
+    far_auth_file: non-ga-prod-pull-key.tgz
+    subscription_jwt_file: subscription.jwt
+  cos:
+    instance: bnk-supply-chain
+    bucket: bnk-artifacts-0b5a00334eaf
+    region: us-south
 ```
 
 Block by block:
 
 - **`lifecycle`** is the switch you will flip in Part IV. `up` renders a
   `bnk-up` hook; `down` renders `bnk-down` instead.
-- **`sizing.profile`** writes `ROKSBNKCTL_WORKERS_PER_ZONE`,
-  `ROKSBNKCTL_WORKER_FLAVOR`, `ROKSBNKCTL_TMM_REPLICAS` and
-  `ROKSBNKCTL_CNEINSTANCE_SIZE=Tiny` into the `bnk-env` ConfigMap. With
-  `cluster.create: false` the first two describe the cluster you already have;
-  `tmmReplicas` is what BNK actually uses.
-- **`cluster`** — `create: false` + `name` means the `bnk-cluster` hook runs
-  `cluster register sm-cli`, records the cluster's VPC, network mode and
+- **`sizing.profile`** is merged into `config` at render time:
+  `cluster.workers_per_zone`, `cluster.worker_flavor`, `bnk.tmm_replicas` and
+  `bnk.cneinstance_size: Tiny`. With `cluster.create: false` the first two
+  describe the cluster you already have; `tmm_replicas` is what BNK uses.
+- **`config.cluster`** — `create: false` + `name` means the `bnk-cluster` hook
+  runs `cluster register sm-cli`, records the cluster's VPC, network mode and
   registry COS instance in `cluster-outputs.json`, and fetches the admin
   kubeconfig. `create: true` (hub only) runs `cluster up` and builds the
   cluster the size profile describes — that is how the `bnk-small`,
   `bnk-medium` and `bnk-large` overlays work.
+- **`config.resources.transit_gateway`** — adopt the gateway by name or id
+  (`create: false, existing: …`) or let the cluster phase create one.
+- **`config.bnk`** — the version and the supply-chain object names;
+  **`config.cos`** — the bucket they live in. Everything else in the
+  roksbnkctl schema (`bnk.network.zones`, `bnk.flp`, `gateway:`, `state:` for
+  the COS remote-state backend, …) goes in the same block.
+- **Secrets never go in `config`.** The API key and any password come from
+  `bnk-secrets` through the environment, which `init --override-from-env`
+  applies on top of the file. The chart refuses to render a `config` that
+  contains `api_key_b64` or `*password_b64`.
 - **`registry.mode: none`** — a connected cluster pulls BNK from `repo.f5.com`
   with the FAR pull key from the COS bucket. `adopt` or `replicate` are for a
   Harbor/Artifactory mirror (disconnected clusters).
-- **`ROKSBNKCTL_MANIFEST_VERSION`** selects the BNK version. Changing it later
-  is an upgrade, and BNK has no in-place upgrade: the Application runs
-  `bnk down` then `bnk up` (see [Day-2](11-day-2.md)).
-- **`env`** — the supply chain (COS instance, bucket, region, the two object
-  names) and the cluster facts. The chart merges the profile and the
-  chart-derived keys underneath; anything you set here wins.
+
+> **Prefer env?** The chart also accepts the workspace as `ROKSBNKCTL_*` keys
+> under `env:` (the roksbnkctl runner's CI contract) — `apps/overlays/bnkdisco`
+> is written that way. Use one style per overlay.
 
 ## What the runner will see
 
-Render it locally to check the environment the hooks will get:
+Render it locally to check the `config.yaml` the hooks will get — this is what
+Argo CD will show in the `bnk-config` ConfigMap's diff:
 
 ```bash
 helm template bnk-sm-cli charts/bnk-workspace -f apps/overlays/sm-cli/values.yaml \
-  | sed -n '/kind: ConfigMap/,/^---/p' | grep -A30 'name: bnk-env'
+  | sed -n '/name: bnk-config/,/^---/p'
 ```
 
 ```yaml
 data:
-  REGISTRY_COS_NAME: "sm-cli-registry-cos"
-  ROKSBNKCTL_CLUSTER_CREATE: "false"
-  ROKSBNKCTL_CLUSTER_NAME: "sm-cli"
-  ROKSBNKCTL_CLUSTER_NETWORK_MODE: "single-nic"
-  ROKSBNKCTL_CNEINSTANCE_SIZE: "Tiny"
-  ROKSBNKCTL_COS_BUCKET: "bnk-artifacts-0b5a00334eaf"
-  …
-  ROKSBNKCTL_TMM_REPLICAS: "3"
-  ROKSBNKCTL_WORKERS_PER_ZONE: "2"
-  ROKSBNKCTL_WORKER_FLAVOR: "bx2.8x32"
+  config.yaml: |
+    bnk:
+      cneinstance_size: Tiny          # from sizing.profile
+      far_auth_file: non-ga-prod-pull-key.tgz
+      far_repo_url: repo.f5.com
+      manifest_version: 2.4.0-EA
+      subscription_jwt_file: subscription.jwt
+      tmm_replicas: 3                 # from sizing.profile
+    cluster:
+      create: false
+      name: sm-cli
+      network_mode: single-nic
+      openshift_version: "4.21"
+      worker_flavor: bx2.8x32         # from sizing.profile
+      workers_per_zone: 2             # from sizing.profile
+    cos: {bucket: bnk-artifacts-0b5a00334eaf, instance: bnk-supply-chain, region: us-south}
+    ibmcloud: {region: us-east, resource_group: default}
+    prefix: sm-cli
+    resources:
+      transit_gateway: {create: false, existing: sm-cli-tgw}
+    tf_source: {type: embedded}
 ```
+
+The `bnk-env` ConfigMap shrinks to the handful of keys the hooks themselves
+read (`ROKSBNKCTL_CLUSTER_CREATE`, `_CLUSTER_NAME`, `_MANIFEST_VERSION`,
+`REGISTRY_COS_NAME`).
 
 `make lint` runs `helm lint` over every overlay, and `make validate` checks the
 rendered manifests against the Kubernetes and Argo CD schemas.

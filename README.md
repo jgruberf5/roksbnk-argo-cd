@@ -34,7 +34,7 @@ What this gives the operator:
 
 | roksbnkctl on a laptop | With Argo CD |
 |---|---|
-| `roksbnkctl init` + `config.yaml` | `apps/overlays/<workspace>/values.yaml` in Git (`ROKSBNKCTL_*` keys → ConfigMap) |
+| `roksbnkctl init` + `config.yaml` | the same `config.yaml`, under `config:` in `apps/overlays/<workspace>/values.yaml` → ConfigMap → `init --config-file` (or `ROKSBNKCTL_*` keys under `env:`) |
 | API key prompt / keychain | `bnk-secrets` from External Secrets Operator (IBM Secrets Manager, Vault) or created out of band |
 | "Apply this plan?" | **manual sync** — an audited action by the `bnk-operator` role, optionally inside a sync window |
 | guards abort before the apply | gate Jobs at waves −4…−1 fail the sync; `bnk-up` is never created |

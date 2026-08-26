@@ -28,8 +28,10 @@ flowchart LR
 ```
 
 - **One Argo CD `Application` per BNK workspace.** Its source is a Helm chart in
-  the companion repository plus a small values overlay that names the cluster,
-  the size and the supply chain. Syncing the Application *is* the install.
+  the companion repository plus a small values overlay: the size, and
+  roksbnkctl's own `config.yaml` — the same file the roksbnkctl book
+  documents — naming the cluster, the version and the supply chain. Syncing the
+  Application *is* the install.
 - **Argo CD runs the lifecycle as hook Jobs.** Each Job runs the
   `roksbnkctl-tools-runner` image — roksbnkctl, Terraform, Helm, kubectl/oc and
   the IBM Cloud CLI in one container — and the Jobs are ordered with Argo CD
