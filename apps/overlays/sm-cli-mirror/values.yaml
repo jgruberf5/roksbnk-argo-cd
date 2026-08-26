@@ -22,7 +22,9 @@ storage:
 secrets:
   mode: existing               # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD (the registry token)
 registry:
-  adoptArgs: --verify-contents # prove the mirror holds every 2.4.0-EA artifact before recording it
+  adoptArgs: --force           # Artifactory answers the registry-wide /v2/_catalog with an empty list, so
+                               # adopt's "does the mirror hold anything under bnk-mirror/?" probe cannot see
+                               # the repositories; --force records the mirror anyway
 
 config:                        # roksbnkctl config.yaml
   ibmcloud:

@@ -10,10 +10,10 @@ tree, then the **Logs** tab in the sliding panel. The URL is bookmarkable —
 ![bnk-init logs](images/logs-bnk-init.png)
 
 ```text
-✓ Applied 4 override(s) from environment: ibmcloud.api_key_b64 (IBMCLOUD_API_KEY), cluster.name, cluster.create, bnk.manifest_version
+✓ Applied 1 override(s) from environment: ibmcloud.api_key_b64 (IBMCLOUD_API_KEY)
 ✓ Wrote /work/.roksbnkctl/sm-cli/config.yaml
 ✓ Current workspace: sm-cli
-roksbnkctl v1.54.0 (commit 101c20a…)
+roksbnkctl v1.55.1 (commit 8cc630c…)
 ✓  terraform              /usr/local/bin/terraform (Terraform v1.10.5)
 ✓  helm                   /usr/local/bin/helm (v3.21.4)
 ✓  ibmcloud api key       resolved
@@ -21,9 +21,7 @@ roksbnkctl v1.54.0 (commit 101c20a…)
 ✓  ibm cloud quota        VPCs us-east: 17/20; Transit Gateways: 8/10 (account)
 ```
 
-The workspace is seeded from your `config.yaml` (the `bnk-config` ConfigMap);
-the "4 overrides" on top of it are the API key from `bnk-secrets` and the three
-keys the chart derives from the same file for its own hooks. The `ibm cloud
+The workspace is seeded from your `config.yaml` (the `bnk-config` ConfigMap); the one override on top of it is the API key from `bnk-secrets`, which never touches Git or the ConfigMap. The `ibm cloud
 auth` line is the one to look for when a run fails immediately — an invalid
 key fails here, in seconds, before anything touches the cluster.
 
