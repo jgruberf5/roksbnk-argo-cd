@@ -28,7 +28,9 @@ fail() { echo "error: $*" >&2; exit 1; }
 nap() { s=${1:-0}; if [ "$s" -gt 0 ] 2>/dev/null; then log "$2 (${s}s)"; sleep "$s"; fi; }
 json_flag() { for x in "$@"; do [ "$x" = "--json" ] && return 0; done; return 1; }
 deployed() { [ -f "$D/state/terraform.tfstate" ] && echo true || echo false; }
-line() { printf '%s' "${ROKSBNKCTL_MANIFEST_VERSION:-2.4.0-0}" | cut -d. -f1-2; }
+mver() { v="${ROKSBNKCTL_MANIFEST_VERSION:-}"; [ -n "$v" ] || v=$(sed -n 's/^ *manifest_version: *//p' "$D/config.yaml" 2>/dev/null | tr -d '"' | head -1); printf '%s' "${v:-2.4.0-0}"; }
+line() { mver | cut -d. -f1-2; }
+cfgv() { sed -n "s/^ *$1: *//p" "$D/config.yaml" 2>/dev/null | tr -d '"' | head -1; }
 
 case "$verb" in
   version)
@@ -108,19 +110,19 @@ case "$verb" in
         # --- guards, in prepareBNKUp order ---
         [ -f "$D/config.yaml" ] || fail "workspace $WS is not initialised"
         [ -f "$D/cluster-outputs.json" ] || fail "no cluster-outputs.json: run cluster up or cluster register first"
-        if [ -n "${ROKSBNKCTL_REGISTRY_TARGET:-}" ]; then
+        if [ -n "${ROKSBNKCTL_REGISTRY_TARGET:-$(cfgv target)}" ]; then
           [ -f "$D/registry-mirror.json" ] || fail "a registry mirror is configured but there is no record of it — run registry replicate or registry adopt"
           m=$(jq -r '.missing_count // 0' "$D/registry-mirror.json"); [ "$m" = "0" ] || fail "registry mirror incomplete: $m artifacts missing"
         fi
-        if [ "${ROKSBNKCTL_LICENSE_MODE:-}" = "f5licenseproxy" ] && [ -z "${ROKSBNKCTL_FLP_EXTERNAL_URL:-}" ] && [ ! -f "$D/flp-outputs.json" ]; then
+        if [ "${ROKSBNKCTL_LICENSE_MODE:-$(cfgv license_mode)}" = "f5licenseproxy" ] && [ -z "${ROKSBNKCTL_FLP_EXTERNAL_URL:-}" ] && [ ! -f "$D/flp-outputs.json" ]; then
           fail "license_mode f5licenseproxy requires an FLP hand-off (flp-outputs.json or ROKSBNKCTL_FLP_EXTERNAL_URL)"
         fi
         if [ -f "$D/state/terraform.applied.tfvars" ]; then
           have=$(sed -n 's/^bnk_line = "\(.*\)"/\1/p' "$D/state/terraform.applied.tfvars")
           [ "$have" = "$(line)" ] || fail "BNK line change $have -> $(line) refused (guardCreateTimeSettings)"
           havev=$(sed -n 's/^f5_bigip_k8s_manifest_version = "\(.*\)"/\1/p' "$D/state/terraform.applied.tfvars")
-          if [ "$(deployed)" = "true" ] && [ -n "$havev" ] && [ "$havev" != "${ROKSBNKCTL_MANIFEST_VERSION:-2.4.0-0}" ]; then
-            fail "IN-PLACE UPGRADE ATTEMPTED ($havev -> ${ROKSBNKCTL_MANIFEST_VERSION}): BNK does not support this — the chart must run bnk down first"
+          if [ "$(deployed)" = "true" ] && [ -n "$havev" ] && [ "$havev" != "$(mver)" ]; then
+            fail "IN-PLACE UPGRADE ATTEMPTED ($havev -> $(mver)): BNK does not support this — the chart must run bnk down first"
           fi
         fi
         [ -z "${STUB_FAIL_GUARD:-}" ] || fail "$STUB_FAIL_GUARD"
@@ -130,7 +132,7 @@ case "$verb" in
         [ -z "${STUB_FAIL_APPLY:-}" ] || fail "terraform apply failed after 5 attempts: $STUB_FAIL_APPLY"
         mkdir -p "$D/state"
         jq -n --arg l "$(line)" '{resources:[{type:"helm_release",name:"flo"},{type:"kubectl_manifest",name:"cneinstance"},{type:"kubectl_manifest",name:"license"}],outputs:{flo_namespace:{value:"f5-bnk"},flo_utils_namespace:{value:"f5-utils"},bnk_line:{value:$l}}}' > "$D/state/terraform.tfstate"
-        printf 'bnk_line = "%s"\nf5_bigip_k8s_manifest_version = "%s"\nflo_namespace = "f5-bnk"\n' "$(line)" "${ROKSBNKCTL_MANIFEST_VERSION:-2.4.0-0}" > "$D/state/terraform.applied.tfvars"
+        printf 'bnk_line = "%s"\nf5_bigip_k8s_manifest_version = "%s"\nflo_namespace = "f5-bnk"\n' "$(line)" "$(mver)" > "$D/state/terraform.applied.tfvars"
         log "bnk up: License bnk-license Active · CNEInstance Available · done" ;;
       down)
         if [ "$(deployed)" = "false" ]; then log "bnk down: nothing to do (no BNK state in $WS)"; exit 0; fi
