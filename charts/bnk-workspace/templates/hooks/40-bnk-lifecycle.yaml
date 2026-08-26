@@ -49,8 +49,9 @@ trap 'exit 130' INT
 write_status running unknown "bnk %[1]s in progress"
 %[2]s
 roksbnkctl -w "$WS" bnk %[1]s --auto
+%[3]s
 roksbnkctl -w "$WS" bnk status --json > /tmp/status.json
 write_status succeeded "$(deployed_now)" "bnk %[1]s completed" /tmp/status.json
-` $verb $upgradeStep -}}
+` $verb $upgradeStep (ternary `roksbnkctl -w "$WS" flp down --auto` `true` (and (eq $verb "down") .Values.flp.deploy .Values.teardown.flp)) -}}
 {{- $cwc := and (eq $verb "up") (eq (include "bnk.cwcGuard" .) "true") }}
 {{ include "bnk.hookJob" (dict "root" . "name" (printf "bnk-%s" $verb) "hook" "Sync" "wave" "0" "deadline" (ternary .Values.timeouts.down .Values.timeouts.apply (eq $verb "down")) "script" $script "cwc" $cwc) }}

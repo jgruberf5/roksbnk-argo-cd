@@ -1,8 +1,8 @@
-# Disconnected ROKS cluster via the hub topology (Argo CD on the services-VPC
-# management cluster; the runner reaches Harbor's private IP and the ROKS API
-# over the Transit Gateway). The Harbor mirror was populated by a separate
-# `registry replicate` run and is adopted here; licensing goes through the F5
-# License Proxy whose endpoint and root CA arrive in the flp-handoff Secret.
+# Disconnected ROKS cluster: every image and chart comes from a private registry
+# (a Harbor at 10.240.0.4 on the Transit Gateway), and licensing goes through an
+# F5 License Proxy that this workspace deploys as a VSI before it installs BNK.
+# Argo CD runs on the hub in the same fabric; the runner image is pulled from
+# the same mirror.
 workspace: bnkdisco
 namespace: bnk-bnkdisco
 lifecycle: up
@@ -10,22 +10,19 @@ topology: hub
 sizing:
   profile: small
 runner:
-  image: 10.240.0.4/bnk-mirror/roksbnkctl-tools-runner   # mirrored runner (air-gapped pull)
+  image: 10.240.0.4/bnk-mirror/roksbnkctl-tools-runner   # the runner, mirrored
   tag: v1.54.0
   runAsUser: 1000
-  extraEnvFrom:
-    - secretRef: {name: flp-handoff}   # F5 License Proxy endpoint + root CA, written by the flp workspace
-registry:
-  mode: adopt                       # the mirror exists; record it (registry adopt)
-  target: generic
+  imagePullSecrets:
+    - name: mirror-pull                  # only if the mirror project is not anonymous-pull
 storage:
-  storageClassName: local-path      # k3s hub; ibmc-vpc-block-* on a ROKS hub
+  storageClassName: local-path           # k3s hub; ibmc-vpc-block-* on a ROKS hub
 secrets:
-  mode: existing                    # bnk-secrets (IBMCLOUD_API_KEY, ROKSBNKCTL_GENERIC_PASSWORD) created out of band
-flpHandoff:
-  writeSecret: true
+  mode: existing                         # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD
+flp:
+  deploy: true                           # flp up runs before bnk up; bnk up consumes its hand-off
 
-config:                             # roksbnkctl config.yaml
+config:                                  # roksbnkctl config.yaml
   ibmcloud:
     region: us-east
     resource_group: default
@@ -37,22 +34,35 @@ config:                             # roksbnkctl config.yaml
     name: bnk-cid
     openshift_version: "4.21"
     network_mode: single-nic
-    vpc_cidr: 10.247.0.0/16
   resources:
     transit_gateway:
       create: false
-      existing: bnkci-testing
+      existing: bnkci-testing            # the gateway the cluster, the mirror and the proxy share
+  registry:                              # the private registry (populated by `registry replicate`)
+    target: generic
+    generic_host: 10.240.0.4
+    generic_repo_prefix: bnk-mirror
+    generic_username: admin
+    generic_ca_b64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t…   # the mirror's CA (PEM, base64)
+    generic_ca_sha256: sha256:ab12…
   bnk:
     manifest_version: 2.4.0-EA
     far_auth_file: f5-far-auth-key.tgz
     subscription_jwt_file: subscription.jwt
     license_mode: f5licenseproxy
+    flp:                                 # the F5 License Proxy this workspace deploys
+      mode: vsi
+      vsi:
+        create_vpc: true
+        vpc_name: bnk-cid-flp-vpc
+        subnet_cidr: 10.248.0.0/24       # must not overlap anything on the gateway
+        zone: us-east-1
+        profile: bx2-4x16
+        ssh_key: bnk-hub-key
+        floating_ip: false               # reachable over the gateway only
+        licensing_allowed_cidrs: [10.247.0.0/16]   # the cluster VPC
+        management_allowed_cidrs: [10.250.0.0/24]  # the hub
   cos:
     instance: bnk-supply-chain
     bucket: bnk-supply-chain
     region: us-south
-  registry:
-    target: generic
-    generic_host: 10.240.0.4
-    generic_repo_prefix: bnk-mirror
-    generic_username: admin

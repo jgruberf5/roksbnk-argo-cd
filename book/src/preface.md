@@ -12,10 +12,7 @@ hook Jobs — is explained as you go.
 
 Every screenshot in this book was captured from a real Argo CD instance
 (upstream v3.5.1 on a small IBM Cloud VSI) driving a real BNK 2.4 install onto a
-real ROKS 4.21 cluster, with a headless browser script that lives beside the
-book so the pictures can be refreshed when the UI changes
-([Appendix B](appendix-b-screenshots.md)). The logs shown are the logs those
-runs produced.
+real ROKS 4.21 cluster. The logs shown are the logs those runs produced.
 
 ## How to read it
 
@@ -30,8 +27,9 @@ expressed in a few lines of values. Part IV tears BNK down again — both ways.
 Part V is for the day after: re-syncs, upgrades, what to do when a gate fails.
 
 The reference section documents every chart value, every hook Job and the RBAC
-they need, and the two appendices cover building the Argo CD hub VSI in the
-IBM Cloud fabric and refreshing the screenshots.
+they need. Appendix A builds the Argo CD hub VSI in the IBM Cloud fabric;
+Appendix B is a worked overlay for a disconnected cluster — a private registry
+and an F5 License Proxy.
 
 ## Conventions
 

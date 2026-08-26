@@ -39,7 +39,9 @@ including the admin kubeconfig it fetches.
 | `config.cluster.create` | — | `false`: `bnk-cluster` runs `cluster register <config.cluster.name>`. `true` (hub): it runs `cluster up --auto` and builds the cluster `config.cluster` describes. |
 | `config.cluster.name` | — | The existing cluster to register, or the name of the cluster to build. |
 | `cluster.registryCosName` | `""` | Only when the registry COS instance is not named `<prefix>-registry-cos` (roksbnkctl's convention, which `cluster register` tries first). |
-| `teardown.cluster` | `false` | With `cluster.create: true`: the PreDelete hook also runs `tgw disconnect` and `cluster down`. |
+| `teardown.cluster` | `false` | With `config.cluster.create: true`: the PreDelete hook also runs `tgw disconnect` and `cluster down`. |
+| `flp.deploy` | `false` | Deploy the F5 License Proxy described by `config.bnk.flp` from this workspace: the `bnk-flp` hook runs `flp up --auto` before `bnk up` ([Appendix B](appendix-b-private-registry-flp.md)). |
+| `teardown.flp` | `true` | With `flp.deploy: true`: `flp down` after `bnk down` on delete / `lifecycle: down`. |
 
 ## Registry mirror
 
@@ -121,4 +123,4 @@ The blocks a workspace typically sets:
 | `status.configMapName` | `bnk-status` | The status ConfigMap the Lua health check reads. |
 | `hooks.deletePolicy` | `BeforeHookCreation` | Keep the last run's Jobs (including failed ones) until the next sync. |
 | `preDelete.enabled` | `true` | Render the PreDelete hook (Argo CD ≥ 3.3). |
-| `timeouts.init` / `cluster` / `registry` / `preflight` / `apply` / `status` / `down` | 600 / 7200 / 7200 / 900 / 7200 / 300 / 5400 | `activeDeadlineSeconds` per hook Job. |
+| `timeouts.init` / `cluster` / `flp` / `registry` / `preflight` / `apply` / `status` / `down` | 600 / 7200 / 3600 / 7200 / 900 / 7200 / 300 / 5400 | `activeDeadlineSeconds` per hook Job. |

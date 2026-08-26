@@ -34,4 +34,4 @@
 - [Chart values](13-values-reference.md)
 - [Hooks, waves and RBAC](14-hooks-reference.md)
 - [Appendix A — Building the hub VSI](appendix-a-hub-vsi.md)
-- [Appendix B — Refreshing the screenshots](appendix-b-screenshots.md)
+- [Appendix B — Private registry and F5 License Proxy](appendix-b-private-registry-flp.md)
