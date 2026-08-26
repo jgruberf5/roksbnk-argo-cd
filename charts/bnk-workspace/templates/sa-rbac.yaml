@@ -31,16 +31,6 @@ rules:
   - apiGroups: [batch]            # SyncFail names the failed hook Jobs
     resources: [jobs]
     verbs: [get, list]
-  {{- if .Values.flpHandoff.writeSecret }}
-  # create cannot be pinned to a resourceName; get/update/patch are.
-  - apiGroups: [""]
-    resources: [secrets]
-    verbs: [create]
-  - apiGroups: [""]
-    resources: [secrets]
-    resourceNames: [{{ .Values.flpHandoff.secretName }}]
-    verbs: [get, update, patch]
-  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

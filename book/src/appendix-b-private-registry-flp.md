@@ -36,9 +36,9 @@ flowchart LR
   It holds the 2.4.0-EA bill of materials in roksbnkctl's layout —
   `bnk-mirror/images/<name>` and `bnk-mirror/charts/<name>` — behind a
   publicly-trusted certificate and a user/token.
-- The proxy was deployed by another workspace (`flp up`). This workspace only
-  needs its **endpoint** and **root CA**, and gets them from
-  `config.bnk.flp.external` — no `flp-outputs.json`, no `flp up` of its own.
+- The proxy already exists — it is estate, deployed with roksbnkctl outside
+  Argo CD. Argo CD never deploys a proxy: the workspace only needs its
+  **endpoint** and **root CA**, and gets them from `config.bnk.flp.external`.
 - `bnk up` renders every chart and image reference against the mirror and
   points the BNK `License` resource at the proxy. The cluster never talks to
   `repo.f5.com` or to F5's licensing service.
@@ -130,7 +130,7 @@ What each part does:
 | `config.registry` | Names the mirror: host, repository prefix and user. Because it is present, the chart renders the `bnk-registry` hook, which runs `registry adopt` and records the mirror (`registry-mirror.json`) that `bnk up`'s guard requires. The password is `ROKSBNKCTL_GENERIC_PASSWORD` in `bnk-secrets`. There is no `generic_ca_b64` because the certificate is publicly trusted; a self-signed mirror adds its CA there (and `generic_ca_sha256` as the pin) and `bnk up` installs it on every node before the first pull. |
 | `registry.adoptArgs: --force` | Artifactory answers the registry-wide `/v2/_catalog` with an empty list (its repositories are listed per-repository), so adopt's "does the mirror hold anything under `bnk-mirror/`?" probe cannot see them. `--force` records the mirror anyway; the artifacts were verified by name when the mirror was populated. Leave it empty for a Harbor or Docker registry, whose catalogue works. |
 | `config.bnk.license_mode: f5licenseproxy` | BNK licenses through the proxy instead of F5's cloud. |
-| `config.bnk.flp.external` | The proxy's URL and root CA (base64 PEM). The CA is public data, so it lives in the overlay; the preflight gate refuses to run `bnk up` without both. A workspace that deploys its own proxy sets `flp.deploy: true` and `config.bnk.flp.{mode,vsi}` instead and gets the hand-off from `flp up`. |
+| `config.bnk.flp.external` | The proxy's URL and root CA (base64 PEM). The CA is public data, so it lives in the overlay; the preflight gate refuses to run `bnk up` without both. |
 | `config.bnk.far_*` | Still named: `registry adopt --verify-contents` and `registry replicate` build the bill of materials from the F5 source, and the subscription is part of the licence. Neither is contacted by the cluster. |
 | `secrets.mode: existing` | `bnk-secrets` carries two keys here — the IBM Cloud API key and the registry token. |
 
@@ -270,40 +270,9 @@ bnk-license   Active   f5licenseproxy   eval          test          2026-09-25T1
 
 ![Healthy, from the mirror, licensed through the proxy](images/mirror-app-healthy.png)
 
-## A proxy this workspace deploys
-
-If there is no proxy yet, the workspace can deploy one before it installs BNK:
-set `flp.deploy: true`, replace `config.bnk.flp.external` with the proxy's own
-description, and the `bnk-flp` hook runs `flp up --auto` at wave −3 and hands
-the endpoint and CA to `bnk up` through `flp-outputs.json`:
-
-```yaml
-flp:
-  deploy: true
-config:
-  bnk:
-    license_mode: f5licenseproxy
-    flp:
-      mode: vsi
-      vsi:
-        create_vpc: true
-        vpc_name: sm-cli-flp-vpc
-        subnet_cidr: 10.248.0.0/24       # must not overlap anything on the gateway
-        zone: us-east-1
-        profile: bx2-4x16
-        ssh_key: bnk-hub-key
-        floating_ip: false               # reachable over the gateway only
-        licensing_allowed_cidrs: [10.241.0.0/16]   # the cluster VPC
-        management_allowed_cidrs: [10.250.0.0/24]  # the hub
-```
-
-`lifecycle: down` or deleting the Application then runs `bnk down` followed by
-`flp down` (`teardown.flp: true`). The mirror is never touched either way: it
-belongs to the estate, not to the workspace.
-
 ## Teardown
 
 Exactly as in Part IV: set `lifecycle: down` and sync, or delete the
-Application. `bnk down` removes BNK from the cluster and its IBM Cloud pieces;
-the registry record and the proxy hand-off stay in the workspace on the PVC for
-the next `bnk up`.
+Application. `bnk down` removes BNK from the cluster and its IBM Cloud pieces.
+The mirror and the proxy are estate, not part of the workspace — neither is
+touched — and the registry record stays on the PVC for the next `bnk up`.

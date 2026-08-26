@@ -191,10 +191,6 @@ secrets:
     #   remoteRef: {key: bnk-ibmcloud-api-key}
   inline: {}
 
-flpHandoff:
-  writeSecret: false           # grant the runner create/patch on the FLP hand-off Secret
-  secretName: flp-handoff
-
 status:
   configMapName: bnk-status
 
@@ -204,21 +200,13 @@ hooks:
 preDelete:
   enabled: true                # Argo CD >= 3.3: deleting the Application runs bnk down first
 
-# F5 License Proxy deployed by THIS workspace (config.bnk.flp: mode vsi or helm) —
-# `flp up --auto` runs before bnk up and its hand-off (flp-outputs.json) is picked
-# up by bnk up automatically when config.bnk.license_mode is f5licenseproxy.
-flp:
-  deploy: false
-
 teardown:
   cluster: false               # with cluster.create=true (hub): also tgw disconnect + cluster down on delete
-  flp: true                    # with flp.deploy=true: flp down after bnk down on delete / lifecycle down
 
 timeouts:                      # activeDeadlineSeconds per hook Job
   init: 600
   cluster: 7200
   registry: 7200
-  flp: 3600
   preflight: 900
   apply: 7200
   status: 300

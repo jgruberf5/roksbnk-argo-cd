@@ -41,8 +41,6 @@ including the admin kubeconfig it fetches.
 | `config.cluster.name` | — | The existing cluster to register, or the name of the cluster to build. |
 | `cluster.registryCosName` | `""` | Only when the registry COS instance is not named `<prefix>-registry-cos` (roksbnkctl's convention, which `cluster register` tries first). |
 | `teardown.cluster` | `false` | With `config.cluster.create: true`: the PreDelete hook also runs `tgw disconnect` and `cluster down`. |
-| `flp.deploy` | `false` | Deploy the F5 License Proxy described by `config.bnk.flp` from this workspace: the `bnk-flp` hook runs `flp up --auto` before `bnk up` ([Appendix B](appendix-b-private-registry-flp.md)). |
-| `teardown.flp` | `true` | With `flp.deploy: true`: `flp down` after `bnk down` on delete / `lifecycle: down`. |
 
 ## Registry mirror
 
@@ -81,7 +79,6 @@ The mirror itself — host, repository prefix, username, CA — is described in
 | `secrets.mode` | `existing` | `existing`, `externalSecret` (renders an ESO `ExternalSecret`), `inline` (dev only), `none`. |
 | `secrets.name` | `bnk-secrets` | Keys roksbnkctl reads: `IBMCLOUD_API_KEY` (required); `ROKSBNKCTL_GENERIC_PASSWORD` (mirror), `ROKSBNKCTL_BIGIP_PASSWORD`, `ROKSBNKCTL_GTM_PASSWORD`, `ROKSBNKCTL_COS_HMAC_ACCESS_KEY` / `_SECRET_KEY` (remote state) as needed. |
 | `secrets.externalSecret.*` | | `storeRef`, `refreshInterval`, `data[]` (`key` + `remoteRef`). |
-| `flpHandoff.writeSecret` / `secretName` | `false` / `flp-handoff` | Let the runner create/patch the F5 License Proxy hand-off Secret. |
 
 ## Workspace (`config`)
 

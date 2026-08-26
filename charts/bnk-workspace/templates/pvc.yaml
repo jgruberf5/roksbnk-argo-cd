@@ -1,5 +1,5 @@
 # The workspace directory is roksbnkctl's state contract: terraform state,
-# config.yaml, cluster-outputs.json, registry-mirror.json, flp-outputs.json and
+# config.yaml, cluster-outputs.json, registry-mirror.json and
 # the applied-tfvars snapshot all live under /work/.roksbnkctl. Losing it orphans
 # the IAM trusted profile and leaves nothing to `bnk down` from — so the claim is
 # never pruned and never deleted with the Application.
