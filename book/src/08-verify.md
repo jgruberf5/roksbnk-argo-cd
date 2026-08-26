@@ -58,6 +58,10 @@ workspace.
 
 Press **Sync** again and every hook runs again: `init` rewrites the same
 `config.yaml`, `cluster register` finds the same cluster, the preflight passes,
-and `bnk up` runs `terraform plan` — which finds nothing to change — and
-returns in a couple of minutes. That is the idempotency the whole design relies
-on, and it is how you apply a changed setting: edit the overlay, commit, sync.
+and `bnk up` runs `terraform plan` again. Expect a small plan, not an empty
+one: roksbnkctl's readiness gates are `null_resource`s whose triggers change on
+every run, so a handful are replaced and the FLO release is re-applied with the
+same values (a re-sync on the workspace above reported `2 to add, 6 to change,
+2 to destroy` and finished in six minutes). No BNK pod restarts. That is the
+idempotency the whole design relies on, and it is how you apply a changed
+setting: edit the overlay, commit, sync.
