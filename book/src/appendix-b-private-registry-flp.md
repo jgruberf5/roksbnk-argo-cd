@@ -61,7 +61,7 @@ topology: hub
 sizing:
   profile: small               # → workers_per_zone=2, worker_flavor=bx2.8x32, tmm_replicas=3, cneinstance_size=Tiny
 runner:
-  tag: v1.55.1
+  tag: v1.56.0
   runAsUser: 1000              # k3s hub, not OpenShift — pin the runner's uid
   resources:
     requests: {cpu: 250m, memory: 512Mi}
@@ -72,11 +72,10 @@ storage:
 secrets:
   mode: existing               # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD (the registry token)
 registry:
-  adoptArgs: ""                # registry adopt records the mirror as configured. Artifactory answers the
-                               # registry-wide /v2/_catalog with an empty response, so adopt cannot list
-                               # the repositories to sanity-check the prefix and says so (⚠) — that is a
-                               # warning, not a failure. --verify-contents (roksbnkctl newer than v1.55.1)
-                               # digest-checks every artifact against the F5 source instead.
+  adoptArgs: --verify-contents # build the 2.4.0-EA bill of materials from the F5 source and digest-check
+                               # every artifact in the mirror before recording it (the hook can reach
+                               # repo.f5.com; leave empty when it cannot — adopt then records the mirror
+                               # as configured, with a ⚠ that Artifactory's registry-wide catalogue is empty)
 
 config:                        # roksbnkctl config.yaml
   ibmcloud:
@@ -130,7 +129,7 @@ What each part does:
 | | |
 |---|---|
 | `config.registry` | Names the mirror: host, repository prefix and user. Because it is present, the chart renders the `bnk-registry` hook, which runs `registry adopt` and records the mirror (`registry-mirror.json`) that `bnk up`'s guard requires. The password is `ROKSBNKCTL_GENERIC_PASSWORD` in `bnk-secrets`. There is no `generic_ca_b64` because the certificate is publicly trusted; a self-signed mirror adds its CA there (and `generic_ca_sha256` as the pin) and `bnk up` installs it on every node before the first pull. |
-| `registry.adoptArgs` | Left empty: `registry adopt` records the mirror as configured. Artifactory answers the registry-wide `/v2/_catalog` with an empty response (its repositories are listed per-repository), so adopt cannot list them to sanity-check the prefix and says so with a ⚠ — a warning, not a failure. A Harbor or Docker registry answers the catalogue and adopt reports how many repositories it found. `--verify-contents` (roksbnkctl newer than v1.55.1) goes further: it builds the bill of materials from the F5 source and digest-checks every artifact in the mirror before recording it. |
+| `registry.adoptArgs: --verify-contents` | `registry adopt` builds the 2.4.0-EA bill of materials from the F5 source and digest-checks every one of its 94 artifacts in the mirror before recording it — proof, not assertion, that the mirror is complete for this version. It needs `repo.f5.com` reachable from the hook Job (true on this hub). Leave it empty when it is not: adopt then records the mirror as configured, with a ⚠ that it could not list Artifactory's registry-wide catalogue (Artifactory answers `/v2/_catalog` with an empty response; a Harbor or Docker registry answers it and adopt reports how many repositories it found under the prefix). |
 | `config.bnk.license_mode: f5licenseproxy` | BNK licenses through the proxy instead of F5's cloud. |
 | `config.bnk.flp.external` | The proxy's URL and root CA (base64 PEM). The CA is public data, so it lives in the overlay; the preflight gate refuses to run `bnk up` without both. |
 | `config.bnk.far_*` | Still named: `registry adopt --verify-contents` and `registry replicate` build the bill of materials from the F5 source, and the subscription is part of the licence. Neither is contacted by the cluster. |
@@ -181,7 +180,7 @@ the credential.
 ```text
 Sync  wave -4  bnk-init        seed the workspace from config.yaml · doctor
 Sync  wave -3  bnk-cluster     cluster register sm-cli · kubeconfig --download
-Sync  wave -2  bnk-registry    registry adopt → registry-mirror.json
+Sync  wave -2  bnk-registry    registry adopt --verify-contents → registry-mirror.json
 Sync  wave -1  bnk-preflight   mirror record complete · FLP hand-off present
 Sync  wave  0  bnk-up          bnk up --auto against the mirror, licence via the proxy
 PostSync       bnk-status      bnk status → bnk-status ConfigMap

@@ -8,7 +8,7 @@ topology: in-target
 sizing:
   profile: small
 runner:
-  tag: v1.55.1                      # leave runAsUser unset on OpenShift (SCC assigns it)
+  tag: v1.56.0                      # leave runAsUser unset on OpenShift (SCC assigns it)
 storage:
   storageClassName: ibmc-vpc-block-10iops-tier
 secrets:

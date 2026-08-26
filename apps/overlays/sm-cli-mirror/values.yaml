@@ -11,7 +11,7 @@ topology: hub
 sizing:
   profile: small               # → workers_per_zone=2, worker_flavor=bx2.8x32, tmm_replicas=3, cneinstance_size=Tiny
 runner:
-  tag: v1.55.1
+  tag: v1.56.0
   runAsUser: 1000              # k3s hub, not OpenShift — pin the runner's uid
   resources:
     requests: {cpu: 250m, memory: 512Mi}
@@ -22,11 +22,10 @@ storage:
 secrets:
   mode: existing               # bnk-secrets: IBMCLOUD_API_KEY + ROKSBNKCTL_GENERIC_PASSWORD (the registry token)
 registry:
-  adoptArgs: ""                # registry adopt records the mirror as configured. Artifactory answers the
-                               # registry-wide /v2/_catalog with an empty response, so adopt cannot list
-                               # the repositories to sanity-check the prefix and says so (⚠) — that is a
-                               # warning, not a failure. --verify-contents (roksbnkctl newer than v1.55.1)
-                               # digest-checks every artifact against the F5 source instead.
+  adoptArgs: --verify-contents # build the 2.4.0-EA bill of materials from the F5 source and digest-check
+                               # every artifact in the mirror before recording it (the hook can reach
+                               # repo.f5.com; leave empty when it cannot — adopt then records the mirror
+                               # as configured, with a ⚠ that Artifactory's registry-wide catalogue is empty)
 
 config:                        # roksbnkctl config.yaml
   ibmcloud:
