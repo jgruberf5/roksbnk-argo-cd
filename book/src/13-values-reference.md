@@ -19,7 +19,7 @@ for the ones a workspace overlay sets. Overlays live in
 
 | Value | Default | Meaning |
 |---|---|---|
-| `runner.image` / `runner.tag` | `ghcr.io/jgruberf5/roksbnkctl-tools-runner` / `v1.54.0` | The roksbnkctl runner image. Mirror it for air-gapped hubs. |
+| `runner.image` / `runner.tag` | `ghcr.io/jgruberf5/roksbnkctl-tools-runner` / `v1.55.1` | The roksbnkctl runner image. Mirror it for air-gapped hubs. |
 | `runner.minVersion` / `runner.allowOlder` | `1.55.1` / `false` | The required roksbnkctl version. Semver tags below it fail at render time; the init hook checks the binary at runtime. |
 | `runner.imagePullPolicy` | `IfNotPresent` | |
 | `runner.imagePullSecrets` | `[]` | For a private mirror. |
