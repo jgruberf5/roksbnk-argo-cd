@@ -21,3 +21,11 @@ outcome=failed deployed=true sync failed (hooks: bnk-preflight) — preflight: B
     [status] succeeded deployed=true — bnk up completed
 
 == 5c. upgrade.strategy=refuse + bump → 2.4.2-0.0.1, sync (expect preflight refusal, no new bnk-up)
+Failed|OutOfSync|Degraded
+outcome=failed deployed=true sync failed (hooks: bnk-preflight) — preflight: BNK line change 2.4 -> refuse is refused on an applied workspace (bnk down first); logs: kubectl -n bnk-kindstub logs -l roksbnkctl.io/workspace=kindstub --tail=200
+
+## job/bnk-preflight (refuse)
+    preflight: BNK line change 2.4 -> refuse is refused on an applied workspace (bnk down first)
+    [status] failed deployed=true — preflight: BNK line change 2.4 -> refuse is refused on an applied workspace (bnk down first)
+
+## bnk-up untouched: start time before=2026-08-26T11:01:09Z after=2026-08-26T11:01:09Z
