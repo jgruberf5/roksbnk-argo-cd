@@ -8,13 +8,11 @@ Three layers, from the outside in.
 from the `bnk-status` ConfigMap; open it in the tree to see what the hooks
 recorded:
 
-![bnk-status summary](images/res-bnk-status-summary.png)
+![bnk-status summary with its live manifest](images/res-bnk-status-summary.png)
 
-The **Manifest** tab shows the raw data — `lifecycle`, `outcome`, `deployed`,
-`message`, `updatedAt`, which hook wrote it last, and the full
-`bnk status --json` document:
-
-![bnk-status manifest](images/res-bnk-status-manifest.png)
+The live manifest below the summary shows the raw data — `lifecycle`,
+`outcome`, `deployed`, `message`, `updatedAt`, which hook wrote it last, and
+the full `bnk status --json` document.
 
 ```bash
 kubectl -n bnk-sm-cli get configmap bnk-status -o jsonpath='{.data.outcome} {.data.deployed} {.data.message}{"\n"}'

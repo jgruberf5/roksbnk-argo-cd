@@ -155,10 +155,10 @@ data:
 ```
 
 Once the Application exists, the same file is what Argo CD shows for the
-`bnk-config` resource — open it in the tree and pick **Manifest** — and what a
+`bnk-config` resource — open it in the tree and read its **Summary** — and what a
 later change to the overlay diffs against:
 
-![The bnk-config ConfigMap: roksbnkctl's config.yaml as Argo CD sees it](images/res-bnk-config-manifest.png)
+![The bnk-config ConfigMap: roksbnkctl's config.yaml as Argo CD sees it](images/res-bnk-config-summary.png)
 
 `make lint` runs `helm lint` over every overlay, and `make validate` checks the
 rendered manifests against the Kubernetes and Argo CD schemas.

@@ -22,7 +22,7 @@ ARGOCD_PASSWORD=… SHOT_SECRETS="$IBMCLOUD_API_KEY" APP_NS=bnk-sm-cli \
   node capture.js https://<argocd>:30443 ../src/images bnk-sm-cli \
     login apps app:healthy sync-panel \
     logs:bnk-init logs:bnk-cluster logs:bnk-preflight logs:bnk-up:complete logs:bnk-status \
-    res:ConfigMap/bnk-config:manifest res:ConfigMap/bnk-status:summary res:ConfigMap/bnk-status:manifest \
+    res:ConfigMap/bnk-config:summary res:ConfigMap/bnk-status:summary \
     settings-repos settings-projects
 ```
 
@@ -33,7 +33,7 @@ ARGOCD_PASSWORD=… SHOT_SECRETS="$IBMCLOUD_API_KEY" APP_NS=bnk-sm-cli \
 | `app[:suffix]` | `03-app.png` or `app-<suffix>.png` — the tree view |
 | `sync-panel` | `04-sync-panel.png` |
 | `logs:<job>[:suffix]` | `logs-<job>[-suffix].png` — the Job's Logs tab, scrolled to the end |
-| `res:<Kind>/<name>[:tab][:suffix]` | `res-<name>-<tab>.png` — a resource's panel (`summary`, `manifest`, `events`, `logs`) |
+| `res:<Kind>/<name>[:tab][:suffix]` | `res-<name>-<tab>.png` — a resource's panel (`summary` shows the live manifest; `events`; `logs`) |
 | `settings-repos`, `settings-projects` | `settings-repositories.png`, `settings-projects.png` |
 | `details-summary[:suffix]` | `details-summary[-suffix].png` — Details → Summary (project, labels, sync options) |
 | `delete-confirm` | `delete-confirm.png` + `delete-deleting.png` — types the name, keeps Foreground, clicks **OK** — really deletes |

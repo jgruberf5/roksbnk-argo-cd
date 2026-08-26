@@ -45,9 +45,8 @@ always:
 4. **`bnk-up`** (wave 0) — the install itself. On a cluster that has never
    seen BNK this is 45–90 minutes: cert-manager, then the F5 Lifecycle
    Operator, then the `CNEInstance` (TMM), then the licence, each with a
-   readiness gate. On `sm-cli`, which had been installed and torn down earlier
-   the same day and still had every image cached on its nodes, it took eight
-   minutes.
+   readiness gate. On `sm-cli`, whose nodes already had every BNK image cached,
+   it took nine and a half minutes.
 5. **`bnk-status`** (PostSync) — captures `bnk status --json` into the
    `bnk-status` ConfigMap.
 

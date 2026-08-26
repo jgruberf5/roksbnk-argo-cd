@@ -10,11 +10,9 @@ tree, then the **Logs** tab in the sliding panel. The URL is bookmarkable —
 ![bnk-init logs](images/logs-bnk-init.png)
 
 ```text
-✓ Applied 17 field(s) from environment: ibmcloud.api_key_b64 (IBMCLOUD_API_KEY), prefix (ROKSBNKCTL_PREFIX),
-  ibmcloud.region (ROKSBNKCTL_REGION), … cluster.name (ROKSBNKCTL_CLUSTER_NAME), … bnk.cneinstance_size
-  (ROKSBNKCTL_CNEINSTANCE_SIZE), … tmm_replicas (ROKSBNKCTL_TMM_REPLICAS), resources.transit_gateway.existing
-  (ROKSBNKCTL_TRANSIT_GATEWAY_NAME), bnk.manifest_version (ROKSBNKCTL_MANIFEST_VERSION), …
-✓ Wrote /work/.roksbnkctl/sm-cli/config.yaml (non-interactive, from environment)
+✓ Applied 4 override(s) from environment: ibmcloud.api_key_b64 (IBMCLOUD_API_KEY), cluster.name, cluster.create, bnk.manifest_version
+✓ Wrote /work/.roksbnkctl/sm-cli/config.yaml
+✓ Current workspace: sm-cli
 roksbnkctl v1.54.0 (commit 101c20a…)
 ✓  terraform              /usr/local/bin/terraform (Terraform v1.10.5)
 ✓  helm                   /usr/local/bin/helm (v3.21.4)
@@ -23,10 +21,11 @@ roksbnkctl v1.54.0 (commit 101c20a…)
 ✓  ibm cloud quota        VPCs us-east: 17/20; Transit Gateways: 8/10 (account)
 ```
 
-The first line is the whole point of `bnk-env`: every setting reached the
-runner, and it says which key set which field. The `ibm cloud auth` line is the
-one to look for when a run fails immediately — an invalid or mistyped key fails
-here, in seconds, before anything touches the cluster.
+The workspace is seeded from your `config.yaml` (the `bnk-config` ConfigMap);
+the "4 overrides" on top of it are the API key from `bnk-secrets` and the three
+keys the chart derives from the same file for its own hooks. The `ibm cloud
+auth` line is the one to look for when a run fails immediately — an invalid
+key fails here, in seconds, before anything touches the cluster.
 
 ## bnk-cluster: register the cluster
 
@@ -87,8 +86,8 @@ Plan: 37 to add, 0 to change, 0 to destroy.
 
 module.cert_manager.module.cert_manager.kubernetes_namespace_v1.cert_manager[0]: Creation complete after 0s [id=cert-manager]
 module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Creating...
-module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Still creating... [1m20s elapsed]
-module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Creation complete after 1m27s [id=cert-manager]
+module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Still creating... [1m30s elapsed]
+module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Creation complete after 1m38s [id=cert-manager]
 module.flo.module.flo.kubernetes_namespace_v1.flo[0]: Creation complete after 1s [id=f5-bnk]
 module.flo.module.flo.kubernetes_namespace_v1.f5_utils[0]: Creation complete after 1s [id=f5-utils]
 module.flo.module.flo.ibm_iam_trusted_profile.cne_controller[0]: Creating...
@@ -97,13 +96,13 @@ module.flo.module.flo.kubectl_manifest.nad_ens3[0]: Creation complete … [id=�
 module.flo.module.flo.null_resource.far_archive_download[0]: Creation complete        ← the FAR pull key, from COS
 module.flo.module.flo.null_resource.cne_far_tgz_extractor[0]: Creation complete
 module.flo.module.flo.null_resource.extract_flo_version[0]: …                         ← the manifest chart, from repo.f5.com
-module.flo.module.flo.helm_release.flo[0]: Creation complete …
+module.flo.module.flo.helm_release.flo[0]: Creation complete after 14s [id=flo]
 module.flo.module.flo.kubectl_manifest.cne_manifest[0]: Creation complete …
 module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance[0]: Creation complete …
-module.cne_instance.module.cneinstance.null_resource.cnecontroller_ready[0]: Still creating... [1m0s elapsed]   ← waits for CNEControllerAvailable=True
+module.cne_instance.module.cneinstance.null_resource.cnecontroller_ready[0]: Creation complete after 1m50s   ← waited for CNEControllerAvailable=True
 module.license.module.license.kubectl_manifest.license[0]: Creation complete …
-module.license.module.license.null_resource.license_active[0]: Creation complete after 38s      ← License status.state=Active
-module.license.module.license.null_resource.cneinstance_available_24[0]: Creation complete after 2m5s   ← 2.4 aggregate Available=True
+module.license.module.license.null_resource.license_active[0]: Creation complete after 40s      ← License status.state=Active
+module.license.module.license.null_resource.cneinstance_available_24[0]: Creation complete after 3m35s  ← 2.4 aggregate Available=True
 
 Apply complete! Resources: 37 added, 0 changed, 0 destroyed.
 
