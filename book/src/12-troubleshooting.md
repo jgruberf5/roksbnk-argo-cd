@@ -90,7 +90,18 @@ overrode `argocd.argoproj.io/sync-wave` on it.
 ## Deleting the Application hangs
 
 The PreDelete hook is running `bnk down` — give it the time a destroy needs
-(the `down` timeout). If it fails, the Application stays with a deletion
+(the `down` timeout).
+
+If the Application was **never synced** (created, then deleted without a
+sync), the hook cannot even start: its ServiceAccount and ConfigMaps do not
+exist, the Job never gets a pod, and Argo CD waits for it. Nothing is
+installed in that case, so remove the finalizer and let the deletion complete:
+
+```bash
+kubectl -n argocd patch application bnk-<ws> --type json -p '[{"op":"remove","path":"/metadata/finalizers"}]'
+```
+
+(`argocd app delete --cascade=false` before the fact achieves the same.) If it fails, the Application stays with a deletion
 timestamp; look at `bnk-predelete`'s pod logs while they exist, fix the cause
 (usually a stuck finalizer on an F5 CR) and delete again. As a last resort
 remove the finalizer from the Application — the resources will be orphaned,
