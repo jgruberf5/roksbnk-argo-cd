@@ -22,7 +22,7 @@ ARGOCD_PASSWORD=… SHOT_SECRETS="$IBMCLOUD_API_KEY" APP_NS=bnk-sm-cli \
   node capture.js https://<argocd>:30443 ../src/images bnk-sm-cli \
     login apps app:healthy sync-panel \
     logs:bnk-init logs:bnk-cluster logs:bnk-preflight logs:bnk-up:complete logs:bnk-status \
-    res:ConfigMap/bnk-status:summary res:ConfigMap/bnk-status:manifest \
+    res:ConfigMap/bnk-config:manifest res:ConfigMap/bnk-status:summary res:ConfigMap/bnk-status:manifest \
     settings-repos settings-projects
 ```
 

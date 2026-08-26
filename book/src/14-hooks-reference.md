@@ -3,14 +3,15 @@
 ## The Jobs
 
 Every hook is a `batch/v1 Job` rendered by `charts/bnk-workspace/templates/hooks/`,
-running the runner image with `envFrom` the `bnk-env` ConfigMap and the
-`bnk-secrets` Secret, the workspace PVC at `/work`, and `backoffLimit: 0` (a
+running the runner image with your `config.yaml` (the `bnk-config` ConfigMap)
+mounted at `/config`, the `bnk-secrets` Secret, the workspace PVC at `/work`,
+and `backoffLimit: 0` (a
 failed hook is never retried silently — you re-sync).
 
 | Job | Phase / wave | Command | Deadline (`timeouts.*`) |
 |---|---|---|---|
-| `bnk-init` | Sync / −4 | `roksbnkctl init -w $WS --non-interactive --override-from-env` · `roksbnkctl version` · `roksbnkctl -w $WS doctor` | `init` |
-| `bnk-cluster` | Sync / −3 | `cluster register "$ROKSBNKCTL_CLUSTER_NAME" --registry-cos-name …` **or** `cluster up --auto`, then `kubeconfig --download` | `cluster` |
+| `bnk-init` | Sync / −4 | `roksbnkctl init -w $WS --config-file /config/config.yaml --override-from-env` (the file, then the Secret on top) · `roksbnkctl version` · `roksbnkctl -w $WS doctor` | `init` |
+| `bnk-cluster` | Sync / −3 | `cluster register <config.cluster.name> --registry-cos-name …` **or** `cluster up --auto` (`config.cluster.create: true`), then `kubeconfig --download` | `cluster` |
 | `bnk-registry` | Sync / −2 | `registry adopt` **or** `registry target` · `bom` · `replicate --target …` · `verify` (only when `registry.mode ≠ none`) | `registry` |
 | `bnk-preflight` | Sync / −1 | shell replica of the workspace-file guards, then `bnk status --json` | `preflight` |
 | `bnk-up` / `bnk-down` | Sync / 0 | `bnk up --auto` **or** `bnk down --auto`; writes `bnk-status` running → succeeded/failed | `apply` / `down` |
@@ -46,7 +47,7 @@ container stops, and let the Job fail.
 | Resource | Wave | Notes |
 |---|---|---|
 | `Namespace` (optional) | −20 | `Prune=false,Delete=false` |
-| `ServiceAccount`, `Role`, `RoleBinding`, `ConfigMap bnk-env`, `Secret` / `ExternalSecret` | −10 | |
+| `ServiceAccount`, `Role`, `RoleBinding`, `ConfigMap bnk-config` (your `config.yaml`), `ConfigMap bnk-env` (a few hook-internal keys), `Secret` / `ExternalSecret` | −10 | |
 | `PersistentVolumeClaim bnk-work` | −4 | `Prune=false,Delete=false`, `ignore-healthcheck` — shares the first hook's wave so a WaitForFirstConsumer class binds inside the wave |
 | `ConfigMap bnk-status` | 0 | placeholder data; the hooks own `data`; Application `ignoreDifferences` on `/data` |
 

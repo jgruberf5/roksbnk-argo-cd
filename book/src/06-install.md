@@ -30,9 +30,10 @@ Each hook appears in the tree as it is created; a completed Job shows a green
 tick, a running one a spinning icon, a failed one a red cross. The order is
 always:
 
-1. **`bnk-init`** (wave −4) — rebuilds the roksbnkctl workspace on the PVC from
-   the `bnk-env` ConfigMap and runs `doctor`: tools present, the API key
-   authenticates against IAM, VPC and Transit Gateway quota. Seconds.
+1. **`bnk-init`** (wave −4) — seeds the roksbnkctl workspace on the PVC from
+   your `config.yaml` (the `bnk-config` ConfigMap, mounted at `/config`) plus
+   the Secret, and runs `doctor`: tools present, the API key authenticates
+   against IAM, VPC and Transit Gateway quota. Seconds.
 2. **`bnk-cluster`** (wave −3) — `cluster register sm-cli`: looks the cluster
    up, verifies the registry COS instance, records `cluster-outputs.json`,
    confirms the VPC's Transit Gateway attachment, and downloads the admin

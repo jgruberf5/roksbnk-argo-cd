@@ -32,38 +32,41 @@ will build it, but it will not hold the platform.
 The cluster this book installs onto — `sm-cli`, six `bx2.8x32` workers, two per
 zone, `tmmReplicas: 3` — **is the Small cluster**.
 
-## Only three settings change
+## One line chooses the size
 
-Between the sizes, the overlay differs in `ROKSBNKCTL_WORKERS_PER_ZONE`,
-`ROKSBNKCTL_WORKER_FLAVOR` and `ROKSBNKCTL_TMM_REPLICAS`. Everything else —
-region, supply chain, manifest version, `Tiny` — is common. The repository ships
-one overlay per size under `apps/overlays/`:
+The overlay names the size; the chart writes the node count, the flavour and
+the TMM pod count into the workspace's `config.yaml` (`cluster.workers_per_zone`,
+`cluster.worker_flavor`, `bnk.tmm_replicas`) and pins `bnk.cneinstance_size:
+Tiny`. Everything else — region, supply chain, manifest version — is common.
+The repository ships one overlay per size under `apps/overlays/`:
 
 ```yaml
 # apps/overlays/bnk-small/values.yaml (excerpt)
-env:
-  ROKSBNKCTL_WORKERS_PER_ZONE: "2"
-  ROKSBNKCTL_WORKER_FLAVOR: bx2.8x32
-  ROKSBNKCTL_TMM_REPLICAS: "3"
-  ROKSBNKCTL_CNEINSTANCE_SIZE: Tiny
+sizing:
+  profile: small            # → workers_per_zone: 2, worker_flavor: bx2.8x32, tmm_replicas: 3, cneinstance_size: Tiny
 ```
 
 ```yaml
 # apps/overlays/bnk-medium/values.yaml (excerpt)
-env:
-  ROKSBNKCTL_WORKERS_PER_ZONE: "2"
-  ROKSBNKCTL_WORKER_FLAVOR: cx2.16x32
-  ROKSBNKCTL_TMM_REPLICAS: "3"
-  ROKSBNKCTL_CNEINSTANCE_SIZE: Tiny
+sizing:
+  profile: medium           # → workers_per_zone: 2, worker_flavor: cx2.16x32, tmm_replicas: 3, cneinstance_size: Tiny
 ```
 
 ```yaml
 # apps/overlays/bnk-large/values.yaml (excerpt)
-env:
-  ROKSBNKCTL_WORKERS_PER_ZONE: "3"
-  ROKSBNKCTL_WORKER_FLAVOR: cx2.48x96
-  ROKSBNKCTL_TMM_REPLICAS: "9"
-  ROKSBNKCTL_CNEINSTANCE_SIZE: Tiny
+sizing:
+  profile: large            # → workers_per_zone: 3, worker_flavor: cx2.48x96, tmm_replicas: 9, cneinstance_size: Tiny
+```
+
+What lands in the rendered `config.yaml` for the Small cluster:
+
+```yaml
+cluster:
+  workers_per_zone: 2
+  worker_flavor: bx2.8x32
+bnk:
+  tmm_replicas: 3
+  cneinstance_size: Tiny
 ```
 
 ## Building the cluster from Git, or installing onto one you have
@@ -92,9 +95,9 @@ cluster.
 
 ## Two things that decide whether a new cluster comes up at all
 
-- **Address prefix.** `ROKSBNKCTL_CLUSTER_VPC_CIDR` must not overlap any VPC
-  already attached to the Transit Gateway you name in
-  `ROKSBNKCTL_TRANSIT_GATEWAY_NAME`. Overlaps are not rejected by the gateway;
+- **Address prefix.** `config.cluster.vpc_cidr` must not overlap any VPC
+  already attached to the Transit Gateway named in
+  `config.resources.transit_gateway.existing`. Overlaps are not rejected by the gateway;
   they are silently black-holed. The size overlays use `10.252/16`,
   `10.253/16` and `10.254/16`; check them against your gateway before you sync.
 - **Quota.** `doctor` (the `bnk-init` hook) prints VPCs-per-region and
@@ -105,6 +108,5 @@ cluster.
 
 The BNK 2.4 IBM install guide itself describes a smaller shape: three
 `bx2.16x64` workers (one per zone) with `tmmReplicas: 1`. roksbnkctl verifies
-that one as well. It is the cheapest way to see BNK 2.4 come up; use
-`ROKSBNKCTL_WORKERS_PER_ZONE: "1"`, `ROKSBNKCTL_WORKER_FLAVOR: bx2.16x64`,
-`ROKSBNKCTL_TMM_REPLICAS: "1"`.
+that one as well. It is the cheapest way to see BNK 2.4 come up:
+`sizing.profile: baseline`.

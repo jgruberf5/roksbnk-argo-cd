@@ -16,9 +16,9 @@ This repository runs the [roksbnkctl](https://github.com/jgruberf5/roksbnkctl) B
 Argo CD is the sole orchestrator and source of truth. The *workspace substrate* (namespace, PVC, ServiceAccount, RBAC, ConfigMap, Secret) is synced as ordinary resources. The *imperative core* — roksbnkctl driving Terraform with the IBM API key, exactly as it does on a laptop or in the Workflows demos — runs inside Argo CD **hook Jobs** on the existing `ghcr.io/jgruberf5/roksbnkctl-tools-runner` image, ordered by sync phase and sync wave:
 
 ```
-Sync     wave -10  Namespace · ServiceAccount · Role · RoleBinding · ConfigMap bnk-env · Secret bnk-secrets
+Sync     wave -10  Namespace · ServiceAccount · Role · RoleBinding · ConfigMap bnk-config (config.yaml) · Secret bnk-secrets
 Sync     wave  -4  PVC bnk-work          (shares the first hook's wave: WaitForFirstConsumer binds here)
-Sync     wave  -4  bnk-init              init --non-interactive --override-from-env · doctor
+Sync     wave  -4  bnk-init              init --config-file /config/config.yaml · doctor
 Sync     wave  -3  bnk-cluster           cluster register <name> (in-target)  |  cluster up --auto (hub)
 Sync     wave  -2  bnk-registry          registry adopt  |  registry replicate --target … (optional)
 Sync     wave  -1  bnk-preflight         workspace-file guards: mirror record, FLP hand-off, line change
@@ -34,7 +34,7 @@ What this gives the operator:
 
 | roksbnkctl on a laptop | With Argo CD |
 |---|---|
-| `roksbnkctl init` + `config.yaml` | the same `config.yaml`, under `config:` in `apps/overlays/<workspace>/values.yaml` → ConfigMap → `init --config-file` (or `ROKSBNKCTL_*` keys under `env:`) |
+| `roksbnkctl init` + `config.yaml` | the same `config.yaml`, under `config:` in `apps/overlays/<workspace>/values.yaml` → the `bnk-config` ConfigMap → `init --config-file` |
 | API key prompt / keychain | `bnk-secrets` from External Secrets Operator (IBM Secrets Manager, Vault) or created out of band |
 | "Apply this plan?" | **manual sync** — an audited action by the `bnk-operator` role, optionally inside a sync window |
 | guards abort before the apply | gate Jobs at waves −4…−1 fail the sync; `bnk-up` is never created |
@@ -78,7 +78,7 @@ EVALUATION.md                   the discovery study
 | Argo CD | OpenShift GitOps (in-target) or upstream Argo CD ≥ 3.3 (hub). PreDelete hooks need ≥ 3.3; older versions use the `lifecycle: down` path. |
 | Runner image | `ghcr.io/jgruberf5/roksbnkctl-tools-runner:v1.54.0` (terraform ≥ 1.10, helm, kubectl/oc, ibmcloud). Mirror it for air-gapped sites. |
 | IBM Cloud | An API key with VPC, Kubernetes Service, Transit Gateway and COS access, held in `bnk-secrets` as `IBMCLOUD_API_KEY`. roksbnkctl mints the ROKS admin kubeconfig from it; the pod ServiceAccount is never used against ROKS. |
-| Supply chain | The FAR auth tarball and subscription JWT in the COS bucket (`ROKSBNKCTL_COS_*`, `ROKSBNKCTL_FAR_AUTH_FILE`, `ROKSBNKCTL_SUBSCRIPTION_JWT_FILE`), as for any roksbnkctl run. |
+| Supply chain | The FAR auth tarball and subscription JWT in the COS bucket named in `config.cos`, with the object names in `config.bnk.far_auth_file` / `config.bnk.subscription_jwt_file`. |
 | Storage | An RWO storage class for the workspace PVC (`ibmc-vpc-block-10iops-tier` on ROKS). |
 | Egress from the hook pods | IBM Cloud APIs, the ROKS API endpoint, FAR or the mirror, `releases.hashicorp.com` unless the Terraform plugin cache is pre-seeded. Disconnected clusters therefore use the hub topology. |
 
@@ -136,14 +136,14 @@ Either install External Secrets Operator and adapt `bootstrap/external-secrets/c
 ```bash
 kubectl -n bnk-<workspace> create secret generic bnk-secrets \
   --from-literal=IBMCLOUD_API_KEY=… \
-  --from-literal=ROKSBNKCTL_GENERIC_PASSWORD=…      # mirror password, if any
+  --from-literal=ROKSBNKCTL_GENERIC_PASSWORD=…      # mirror password, if any (Secret key roksbnkctl reads)
 ```
 
 Never commit these values. `secrets.mode: inline` exists for the kind stub only.
 
 ### 3. Describe the workspace
 
-Copy `apps/overlays/bnkconn/values.yaml` (or `bnkdisco`), set `cluster.name`, the storage class and the `ROKSBNKCTL_*` keys. Every key accepted by `roksbnkctl init --override-from-env` (roksbnkctl book ch. 07a) can go under `env:`; the chart derives `ROKSBNKCTL_CLUSTER_CREATE`, `ROKSBNKCTL_CLUSTER_NAME`, `ROKSBNKCTL_REGISTRY_TARGET` and `REGISTRY_COS_NAME` from its own values. Add the overlay to `apps/applicationset-workspaces.yaml` and apply it.
+Copy `apps/overlays/sm-cli/values.yaml`, pick `sizing.profile`, fill the `config:` block (roksbnkctl's `config.yaml`: cluster, gateway, BNK version, COS bucket) and the storage class. Add the overlay to `apps/applicationset-workspaces.yaml` and apply it.
 
 ### 4. Sync — that is the "apply this plan?" step
 
@@ -162,7 +162,7 @@ Delete the Application (PreDelete runs `bnk down --auto`, then the resources go;
 ### Day 2
 
 - **Re-sync** is idempotent: `bnk up` re-plans and applies nothing when the workspace is unchanged.
-- **Version bump = upgrade, and BNK 2.3/2.4 have no in-place upgrade**: change `ROKSBNKCTL_MANIFEST_VERSION` and sync; the `bnk-up` hook runs `bnk down` then `bnk up` (`upgrade.strategy: down-then-up`, the default) or the gate refuses and asks for an explicit `lifecycle: down` sync first (`refuse`). Terraform is never asked to change a running BNK in place.
+- **Version bump = upgrade, and BNK 2.3/2.4 have no in-place upgrade**: change `config.bnk.manifest_version` and sync; the `bnk-up` hook runs `bnk down` then `bnk up` (`upgrade.strategy: down-then-up`, the default) or the gate refuses and asks for an explicit `lifecycle: down` sync first (`refuse`). Terraform is never asked to change a running BNK in place.
 - **Stuck apply**: every hook has `activeDeadlineSeconds` (`timeouts.*`). Terminating the Argo CD operation does not kill the Job; wait for it or delete it, then sync again.
 - **One run at a time per workspace**: RWO PVC + Terraform lock, the same rule the Workflows demos had.
 
@@ -183,7 +183,7 @@ Delete the Application (PreDelete runs `bnk down --auto`, then the resources go;
 | `preflight.doctor` / `preflight.command` | `true` / `""` | run `doctor`; delegate the gate to a roksbnkctl verb once `bnk preflight` exists |
 | `storage.size` / `storage.storageClassName` | `8Gi` / `""` | the workspace PVC |
 | `secrets.mode` / `secrets.name` | `existing` / `bnk-secrets` | `existing`, `externalSecret`, `inline` (dev), `none` |
-| `env.*` | — | `ROKSBNKCTL_*` keys → ConfigMap `bnk-env` |
+| `config.*` | — | roksbnkctl's `config.yaml` (cluster, gateway, `bnk`, `cos`, `state`, …) → ConfigMap `bnk-config` |
 | `preDelete.enabled` | `true` | render the PreDelete hook (Argo CD ≥ 3.3) |
 | `teardown.cluster` | `false` | with `cluster.create: true`: also `tgw disconnect` + `cluster down` on delete |
 | `timeouts.*` | see values.yaml | `activeDeadlineSeconds` per hook |
@@ -210,9 +210,9 @@ make kind-down
 | 3 · `lifecycle: down` | `bnk-down` → PostSync; **Healthy — "BNK torn down"** |
 | 4 · delete the Application | PreDelete ran `bnk down` (events + PVC state); resources gone in ~12 s; **PVC retained** |
 
-Failure knobs for the stub (`apps/overlays/kind-stub/values.yaml` → `env:`): `STUB_FAIL_GUARD`, `STUB_FAIL_APPLY`, `STUB_MIRROR_MISSING` with `registry.mode: adopt`.
+Failure knobs for the stub live in `apps/overlays/kind-stub/values.yaml`: `STUB_FAIL_GUARD`, `STUB_FAIL_APPLY`, `STUB_MIRROR_MISSING` (with `registry.mode: adopt`).
 
-Things the harness caught that apply to a real cluster: gates must be Sync-phase hooks; a `WaitForFirstConsumer` PVC in its own wave deadlocks the sync (`ignore-healthcheck` affects Application health only, not wave gating), hence the PVC shares wave −4; a Degraded resource at the end of the Sync phase fails the operation and skips PostSync; Argo CD deletes the PreDelete hook Job together with the Application, so `bnk down` logs must be captured elsewhere.
+Design points that matter on a real cluster: gates are Sync-phase hooks (PreSync runs before the substrate exists); the PVC shares the first hook's wave because `WaitForFirstConsumer` classes only bind once a pod mounts the claim and Argo CD waits for wave health; the status ConfigMap is never Degraded on a successful run because a Degraded resource at the end of the Sync phase fails the operation; PreDelete hook Jobs are removed with the Application, so `bnk down` logs are captured separately.
 
 ---
 

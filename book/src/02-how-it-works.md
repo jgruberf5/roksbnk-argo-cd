@@ -9,9 +9,9 @@ that Argo CD creates, waits for, and treats as failed if the Job fails.
 The `bnk-workspace` chart uses exactly that machinery:
 
 ```text
-Sync     wave -10  Namespace · ServiceAccount · Role · RoleBinding · ConfigMap bnk-env · Secret
+Sync     wave -10  Namespace · ServiceAccount · Role · RoleBinding · ConfigMap bnk-config (your config.yaml) · Secret bnk-secrets
 Sync     wave  -4  PVC bnk-work          (shares the first hook's wave — see below)
-Sync     wave  -4  bnk-init              init --non-interactive --override-from-env · doctor
+Sync     wave  -4  bnk-init              init --config-file /config/config.yaml · doctor
 Sync     wave  -3  bnk-cluster           cluster register <name>   |  cluster up --auto (hub)
 Sync     wave  -2  bnk-registry          registry adopt | registry replicate   (only with a mirror)
 Sync     wave  -1  bnk-preflight         workspace-file guards: mirror record, FLP hand-off, line change

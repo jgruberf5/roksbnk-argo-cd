@@ -91,8 +91,9 @@ printf '%s' "$IBMCLOUD_API_KEY" | kubectl -n bnk-sm-cli create secret generic bn
   --from-file=IBMCLOUD_API_KEY=/dev/stdin
 ```
 
-Add `ROKSBNKCTL_GENERIC_PASSWORD` (mirror), `ROKSBNKCTL_BIGIP_PASSWORD` or
-`ROKSBNKCTL_GTM_PASSWORD` the same way if your workspace uses them. If you run
+A registry-mirror password, a BIG-IP password or a GTM password go into the
+same Secret under the key names listed in the [values reference](13-values-reference.md#storage-identity-secrets).
+If you run
 External Secrets Operator, set `secrets.mode: externalSecret` in the overlay and
 let the chart render an `ExternalSecret` instead
 (`bootstrap/external-secrets/` has a ClusterSecretStore for IBM Secrets

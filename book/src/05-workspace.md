@@ -111,16 +111,13 @@ Block by block:
   roksbnkctl schema (`bnk.network.zones`, `bnk.flp`, `gateway:`, `state:` for
   the COS remote-state backend, …) goes in the same block.
 - **Secrets never go in `config`.** The API key and any password come from
-  `bnk-secrets` through the environment, which `init --override-from-env`
-  applies on top of the file. The chart refuses to render a `config` that
-  contains `api_key_b64` or `*password_b64`.
+  the `bnk-secrets` Secret, which the init hook applies on top of the file.
+  The chart refuses to render a `config` that contains `api_key_b64` or
+  `*password_b64`.
 - **`registry.mode: none`** — a connected cluster pulls BNK from `repo.f5.com`
   with the FAR pull key from the COS bucket. `adopt` or `replicate` are for a
   Harbor/Artifactory mirror (disconnected clusters).
 
-> **Prefer env?** The chart also accepts the workspace as `ROKSBNKCTL_*` keys
-> under `env:` (the roksbnkctl runner's CI contract) — `apps/overlays/bnkdisco`
-> is written that way. Use one style per overlay.
 
 ## What the runner will see
 
@@ -157,9 +154,11 @@ data:
     tf_source: {type: embedded}
 ```
 
-The `bnk-env` ConfigMap shrinks to the handful of keys the hooks themselves
-read (`ROKSBNKCTL_CLUSTER_CREATE`, `_CLUSTER_NAME`, `_MANIFEST_VERSION`,
-`REGISTRY_COS_NAME`).
+Once the Application exists, the same file is what Argo CD shows for the
+`bnk-config` resource — open it in the tree and pick **Manifest** — and what a
+later change to the overlay diffs against:
+
+![The bnk-config ConfigMap: roksbnkctl's config.yaml as Argo CD sees it](images/res-bnk-config-manifest.png)
 
 `make lint` runs `helm lint` over every overlay, and `make validate` checks the
 rendered manifests against the Kubernetes and Argo CD schemas.
@@ -213,7 +212,7 @@ kubectl apply -f apps/sm-cli-application.yaml
 ```
 
 The labels are the convention this book uses to tell Applications apart in
-the UI: the BNK version (`ROKSBNKCTL_MANIFEST_VERSION`), the line, the F5
+the UI: the BNK version (`config.bnk.manifest_version`), the line, the F5
 cluster size (`sizing.profile`) and the target cluster. Argo CD shows them on
 the Application, lets you filter the Applications list by them (**Labels**
 filter, or `?labels=roksbnkctl.io/sizing-profile=small` in the URL), and the

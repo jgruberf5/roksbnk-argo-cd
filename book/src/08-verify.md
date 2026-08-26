@@ -26,7 +26,7 @@ kubectl -n bnk-sm-cli get configmap bnk-status -o jsonpath='{.data.outcome} {.da
 `bnk status` runs in the PostSync hook (its output is in the `bnk-status`
 Job's logs, Step 4). To run it yourself against the same workspace, exec into a
 runner pod with the PVC mounted, or — simpler — run the same image with the
-workspace's environment:
+workspace's ConfigMap and Secret:
 
 ```bash
 kubectl -n bnk-sm-cli create job --from=job/bnk-status bnk-status-manual

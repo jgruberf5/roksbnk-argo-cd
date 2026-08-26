@@ -18,11 +18,11 @@ tree. The message names the hook:
 | Message | Cause | Fix |
 |---|---|---|
 | `sync failed (hooks: bnk-init)` and the log ends in `✗ ibm cloud auth … Provided API key could not be found` | The key in `bnk-secrets` is wrong — most often a **trailing newline** from a here-string | Recreate the Secret with `printf '%s' "$KEY" \| kubectl create secret … --from-file=IBMCLOUD_API_KEY=/dev/stdin` |
-| `bnk-init`: `ibmcloud.region is required` | `ROKSBNKCTL_REGION`, `_RESOURCE_GROUP` or `_PREFIX` missing from the overlay's `env` | add them |
+| `bnk-init`: `ibmcloud.region is required` (or `resource_group`, `prefix`) | the required keys are missing from the overlay's `config` | add `config.ibmcloud.region`, `config.ibmcloud.resource_group`, `config.prefix` |
 | `bnk-cluster`: cluster not found | `cluster.name` wrong, or the key's account/region differ | check `ibmcloud ks clusters` with the same key |
-| `preflight: a registry mirror is configured … but there is no record of it` | `registry.mode: none` yet a `ROKSBNKCTL_REGISTRY_TARGET` / `_GENERIC_HOST` reached the env | remove them, or set `registry.mode: adopt` |
+| `preflight: a registry mirror is configured … but there is no record of it` | `registry.mode: none` in the overlay while `config.registry` names a mirror | set `registry.mode: adopt` (mirror populated elsewhere) or `replicate`, or remove `config.registry` |
 | `preflight: registry mirror incomplete: N artifacts missing` | the mirror is short of images | run `registry replicate` (or fix the mirror) and sync |
-| `preflight: license_mode=f5licenseproxy but no FLP hand-off` | FLP mode without `ROKSBNKCTL_FLP_EXTERNAL_URL` + `_ROOT_CA_B64` | add the hand-off Secret via `runner.extraEnvFrom` |
+| `preflight: license_mode=f5licenseproxy but no FLP hand-off` | `config.bnk.license_mode: f5licenseproxy` without the F5 License Proxy hand-off | add the `flp-handoff` Secret via `runner.extraEnvFrom`, or run `flp up` first |
 | `preflight: BNK version change X -> Y on an applied workspace: BNK does not support in-place upgrades` | `upgrade.strategy: refuse` and the manifest version changed | set `lifecycle: down`, sync, change the version, set `lifecycle: up`, sync — or use `down-then-up` |
 | `preflight: BNK line change 2.3 -> 2.4 is refused` | the manifest version crosses lines on an applied workspace | `lifecycle: down`, sync, then change it |
 | `Job was active longer than specified deadline` on `bnk-init` and nothing else ran | the hook could not start — pod events show a missing ServiceAccount or PVC | the chart's waves prevent this; check that nothing renamed `storage.claimName` or `serviceAccount.name` between syncs |
@@ -70,9 +70,9 @@ the Terraform state on the PVC.
 
 roksbnkctl's `bnk status --json` reports `deployed: true` whenever the phase's
 state file exists — including right after a destroy, when it holds zero
-resources. The hooks therefore cross-check the Terraform state's resource
-count before writing `deployed`; if you run an older chart, update it. (Seen on
-the first `sm-cli` teardown; fixed in the chart the same day.)
+resources. The hooks cross-check the Terraform state's resource count before
+writing `deployed`; if you see this symptom, the chart in use predates that
+check — update it.
 
 ## Argo CD says OutOfSync right after a successful sync
 
