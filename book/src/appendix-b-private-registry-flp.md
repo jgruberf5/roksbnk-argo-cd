@@ -191,16 +191,19 @@ PostSync       bnk-status      bnk status → bnk-status ConfigMap
 ![bnk-registry logs](images/mirror-logs-bnk-registry.png)
 
 ```text
-  ⚠ could not list artifactory.grubernet.org to sanity-check the mirror: listing repositories on artifactory.grubernet.org: EOF
+  ✓ recorded 94 artifacts with digests — `registry delete` can drive from this record
+  …
+  ✓ recorded 94 artifacts with digests — `registry delete` can drive from this record
+✓ verified 94 artifacts against the source
   ⚠ no CA recorded for artifactory.grubernet.org — if it is a self-signed mirror, re-run with --registry-ca <file>
 ✓ adopted the mirror at artifactory.grubernet.org/bnk-mirror — `bnk up` will render against it
-  note: no artifact inventory was recorded, so `registry delete` has nothing to remove for this workspace. Re-run with --verify-contents (needs the FAR source) to record one.
 ```
 
-The first warning is the Artifactory catalogue (see `registry.adoptArgs`
-above); the second is expected for a publicly-trusted certificate. Neither
-stops the hook: the record is written and `bnk up` will render against
-`artifactory.grubernet.org/bnk-mirror`.
+`--verify-contents` built the 2.4.0-EA bill of materials from `repo.f5.com`
+and compared the digest of every artifact in the mirror with its source: 94 of
+94 match. The one warning is expected for a publicly-trusted certificate —
+there is no private CA to record. The record is written and `bnk up` will
+render against `artifactory.grubernet.org/bnk-mirror`.
 
 ### bnk-preflight
 
@@ -237,7 +240,12 @@ Apply complete! Resources: 41 added, 0 changed, 0 destroyed.
 
 Two reachability probes run from every node before Terraform starts — one to
 the registry, one to the proxy — because "unreachable" is the failure that
-otherwise surfaces twenty minutes later as an `ImagePullBackOff`. The `License`
+otherwise surfaces twenty minutes later as an `ImagePullBackOff`. On the first
+install the probe DaemonSet is created fresh and reports within seconds; on a
+re-sync it already exists and is rolled one node at a time, so the line sits
+with nothing under it for two to three minutes on a six-node cluster before all
+six report. That pause is the rolling update, not a timeout — a node that
+really cannot reach the target is retried for 180 s and then named. The `License`
 resource carries `operationMode: f5licenseproxy`, the proxy URL and the path
 where the licence helper finds the root CA that `bnk up` mounted.
 
@@ -274,7 +282,40 @@ bnk-license   Active   f5licenseproxy   eval          test          2026-09-25T1
 
 ## Teardown
 
-Exactly as in Part IV: set `lifecycle: down` and sync, or delete the
-Application. `bnk down` removes BNK from the cluster and its IBM Cloud pieces.
-The mirror and the proxy are estate, not part of the workspace — neither is
-touched — and the registry record stays on the PVC for the next `bnk up`.
+Exactly as in Part IV — set `lifecycle: down` and sync, or delete the
+Application. This one was deleted from the UI: **Delete**, type the name,
+**OK**, and the `bnk-predelete` hook runs `bnk down --auto` before Argo CD
+removes anything else.
+
+![The Application while bnk-predelete runs](images/mirror-app-deleting.png)
+
+![bnk-predelete logs, mid-destroy](images/mirror-logs-bnk-predelete-running.png)
+
+```text
+→ FLP licensing: BNK will license via the F5 License Proxy — bnk.flp.external (a proxy in another cluster).
+→ terraform destroy
+…
+Plan: 0 to add, 0 to change, 40 to destroy.
+module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance[0]: Destroying...
+module.flo.module.flo.kubernetes_secret_v1.mirror_secret_flo[0]: Destroying...
+module.flo.module.flo.kubectl_manifest.cnemanifest[0]: Destroying...
+module.flo.module.flo.ibm_iam_trusted_profile.cne_controller[0]: Destroying...
+…
+Error: context deadline exceeded
+  ⚠ namespace "f5-bnk" was stuck Terminating; cleared F5 finalizers on 2 object(s) and it drained.
+→ terraform destroy (retry, after freeing the stuck namespace)
+Plan: 0 to add, 0 to change, 5 to destroy.
+module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destroying...
+…
+```
+
+Forty resources this time rather than Part II's thirty-seven: the three extra
+are the `mirror-secret` pull Secrets `bnk up` placed in `f5-bnk`, `f5-utils`
+and `kube-system`. The `f5-bnk` namespace stall and its repair are the same as
+in Part IV. Sixteen minutes after **OK** the Application is gone; the cluster
+keeps only the F5 CRDs (deliberately) and the empty `roksbnkctl-registry-trust`
+namespace the probe ran in. The mirror and the proxy are estate, not part of
+the workspace — neither is touched — and the workspace's PVC stays on the hub
+with the registry record for the next `bnk up`.
+
+![Applications after the delete](images/mirror-applications-after-delete.png)

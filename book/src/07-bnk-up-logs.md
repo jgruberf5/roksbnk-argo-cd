@@ -13,7 +13,7 @@ tree, then the **Logs** tab in the sliding panel. The URL is bookmarkable —
 ✓ Applied 1 override(s) from environment: ibmcloud.api_key_b64 (IBMCLOUD_API_KEY)
 ✓ Wrote /work/.roksbnkctl/sm-cli/config.yaml
 ✓ Current workspace: sm-cli
-roksbnkctl v1.55.1 (commit 8cc630c…)
+roksbnkctl v1.56.0 (commit 12c481c…)
 ✓  terraform              /usr/local/bin/terraform (Terraform v1.10.5)
 ✓  helm                   /usr/local/bin/helm (v3.21.4)
 ✓  ibmcloud api key       resolved
