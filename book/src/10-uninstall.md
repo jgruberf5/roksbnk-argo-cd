@@ -88,22 +88,10 @@ Destroy complete! Resources: 5 destroyed.
 [status] succeeded deployed=false — bnk down completed
 ```
 
-That log is what happens on every BNK 2.4 teardown today: Terraform deletes
-the `CNEInstance` without waiting for its finalizers, removes the F5 Lifecycle
-Operator three seconds later, and the `f5-bnk` namespace then cannot finish
-terminating because the controller that would clear two F5 custom resources
-is gone. After the kubernetes provider's five-minute timeout roksbnkctl clears
-those finalizers, watches the namespace drain, and re-runs the destroy for the
-five resources that were left. Nothing for the operator to do — but it is
-worth recognising in the log rather than mistaking the first `Error:` for a
-failure. The ordering fix belongs in roksbnkctl's Terraform — tracked as
-[roksbnkctl#217](https://github.com/jgruberf5/roksbnkctl/issues/217).
-
-`bnk down` tears the phases down in reverse-dependency order, then sweeps the
-things Terraform cannot see: F5's validating webhook, the licence secrets in
-the utils namespace, and any finalizer that would leave the `f5-bnk` namespace
-stuck. Custom resource definitions are deliberately left in place. On
-`sm-cli`, the destroy took just under six minutes.
+`bnk down` drains BNK's custom resources while the operator is still running,
+then tears the phases down in reverse-dependency order and sweeps the things
+Terraform cannot see: F5's validating webhook and the licence secrets in the
+utils namespace. Custom resource definitions are deliberately left in place.
 
 When it finishes the Application is **Synced / Healthy — "BNK torn down"**,
 with `bnk-status` showing `lifecycle=down outcome=succeeded deployed=false`:
@@ -153,7 +141,7 @@ Destroy complete! Resources: 5 destroyed.
 ✓ BNK phase destroyed. Cluster phase /work/.roksbnkctl/sm-cli/state-cluster/ is intact.
 ```
 
-The same destroy as Option A — here it ran as the PreDelete hook, took about four and a half minutes on `sm-cli`, and included roksbnkctl's stuck-namespace recovery.
+The same destroy as Option A, run as the PreDelete hook.
 
 When the hook completes, Argo CD deletes the managed resources — the hook Jobs,
 the ConfigMaps, the ServiceAccount and RBAC — skipping the PVC (`Delete=false`),

@@ -11,7 +11,7 @@ sizing:
   profile: small
 runner:
   image: 10.240.0.4/bnk-mirror/roksbnkctl-tools-runner   # the runner, mirrored
-  tag: v1.54.0
+  tag: v1.55.1
   runAsUser: 1000
   imagePullSecrets:
     - name: mirror-pull                  # only if the mirror project is not anonymous-pull

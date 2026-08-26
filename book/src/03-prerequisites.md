@@ -17,10 +17,11 @@ work the same way.
 
 ## The runner image
 
-`ghcr.io/jgruberf5/roksbnkctl-tools-runner:v1.54.0` — roksbnkctl with its
+`ghcr.io/jgruberf5/roksbnkctl-tools-runner:v1.55.1` — roksbnkctl with its
 embedded Terraform, `terraform` 1.10, `helm`, `kubectl`, `oc`, `ibmcloud`,
-`jq`. It is public. For an air-gapped hub, mirror it and set `runner.image` in
-the overlay.
+`jq`. It is public. **roksbnkctl 1.55.1 or newer is required**; the chart
+refuses to render an older tag and the init hook checks the binary's version.
+For an air-gapped hub, mirror it and set `runner.image` in the overlay.
 
 ## IBM Cloud
 

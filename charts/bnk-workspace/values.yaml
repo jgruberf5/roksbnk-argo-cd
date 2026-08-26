@@ -44,7 +44,9 @@ sizing:
 
 runner:
   image: ghcr.io/jgruberf5/roksbnkctl-tools-runner
-  tag: v1.54.0
+  tag: v1.55.1                 # >= v1.55.1 required; the chart refuses older tags (runner.allowOlder to override)
+  minVersion: 1.55.1
+  allowOlder: false
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
   env: {}                      # extra plain env on the runner containers

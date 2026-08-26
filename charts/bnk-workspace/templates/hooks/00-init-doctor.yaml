@@ -2,6 +2,11 @@
 {{- $script := printf `
 %s
 roksbnkctl version
+# runtime floor: the image may carry a non-semver tag; check the binary itself
+have=$(roksbnkctl version 2>/dev/null | sed -n 's/^roksbnkctl v\([0-9][0-9.]*\).*/\1/p' | head -1)
+if [ -n "$have" ] && [ "$(printf '%%s\n' "%s" "$have" | sort -V | head -1)" != "%s" ]; then
+  echo "roksbnkctl $have is older than the required %s" >&2; exit 1
+fi
 %s
-` $init (ternary `roksbnkctl -w "$WS" doctor` `echo "doctor: skipped (preflight.doctor=false)"` .Values.preflight.doctor) -}}
+` $init .Values.runner.minVersion .Values.runner.minVersion .Values.runner.minVersion (ternary `roksbnkctl -w "$WS" doctor` `echo "doctor: skipped (preflight.doctor=false)"` .Values.preflight.doctor) -}}
 {{ include "bnk.hookJob" (dict "root" . "name" "bnk-init" "hook" "Sync" "wave" "-4" "deadline" .Values.timeouts.init "script" $script "cwc" false) }}
