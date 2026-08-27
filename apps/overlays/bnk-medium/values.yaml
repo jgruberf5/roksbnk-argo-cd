@@ -10,7 +10,7 @@ topology: hub
 sizing:
   profile: medium            # → cluster.workers_per_zone=2, worker_flavor=cx2.16x32, bnk.tmm_replicas=3, cneinstance_size=Tiny
 runner:
-  tag: v1.58.0
+  tag: v1.59.0
   runAsUser: 1000
 storage:
   storageClassName: local-path
