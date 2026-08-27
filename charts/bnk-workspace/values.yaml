@@ -44,8 +44,8 @@ sizing:
 
 runner:
   image: ghcr.io/jgruberf5/roksbnkctl-tools-runner
-  tag: v1.56.0                 # >= v1.56.0 required; the chart refuses older tags (runner.allowOlder to override)
-  minVersion: 1.56.0
+  tag: v1.57.0                 # >= v1.57.0 required; the chart refuses older tags (runner.allowOlder to override)
+  minVersion: 1.57.0
   allowOlder: false
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
@@ -176,8 +176,7 @@ env:
   # ROKSBNKCTL_RESOURCE_GROUP: default
   # ROKSBNKCTL_PREFIX: bnk
   # ROKSBNKCTL_MANIFEST_VERSION: 2.4.0-...
-  # ROKSBNKCTL_COS_INSTANCE / ROKSBNKCTL_COS_BUCKET / ROKSBNKCTL_COS_REGION
-  # ROKSBNKCTL_FAR_AUTH_FILE / ROKSBNKCTL_SUBSCRIPTION_JWT_FILE
+  # ROKSBNKCTL_FAR_AUTH_FILE / ROKSBNKCTL_SUBSCRIPTION_JWT_FILE (the COS location is config-only: config.cos)
   # ROKSBNKCTL_LICENSE_MODE: f5licenseproxy
 
 secrets:

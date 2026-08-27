@@ -11,7 +11,7 @@ topology: hub
 sizing:
   profile: small               # → workers_per_zone=2, worker_flavor=bx2.8x32, tmm_replicas=3, cneinstance_size=Tiny
 runner:
-  tag: v1.56.0
+  tag: v1.57.0
   runAsUser: 1000              # k3s hub, not OpenShift — pin the runner's uid
   resources:
     requests: {cpu: 250m, memory: 512Mi}

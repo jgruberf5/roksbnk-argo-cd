@@ -91,8 +91,7 @@ printf '%s' "$IBMCLOUD_API_KEY" | kubectl -n bnk-sm-cli create secret generic bn
   --from-file=IBMCLOUD_API_KEY=/dev/stdin
 ```
 
-A registry-mirror password, a BIG-IP password or a GTM password go into the
-same Secret under the key names listed in the [values reference](13-values-reference.md#storage-identity-secrets).
+A registry-mirror password or a BIG-IP password goes into the same Secret under the key names listed in the [values reference](13-values-reference.md#storage-identity-secrets).
 If you run
 External Secrets Operator, set `secrets.mode: externalSecret` in the overlay and
 let the chart render an `ExternalSecret` instead

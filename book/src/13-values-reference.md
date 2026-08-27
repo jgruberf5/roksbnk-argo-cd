@@ -19,8 +19,8 @@ for the ones a workspace overlay sets. Overlays live in
 
 | Value | Default | Meaning |
 |---|---|---|
-| `runner.image` / `runner.tag` | `ghcr.io/jgruberf5/roksbnkctl-tools-runner` / `v1.56.0` | The roksbnkctl runner image. Mirror it for air-gapped hubs. |
-| `runner.minVersion` / `runner.allowOlder` | `1.56.0` / `false` | The required roksbnkctl version. Semver tags below it fail at render time; the init hook checks the binary at runtime. |
+| `runner.image` / `runner.tag` | `ghcr.io/jgruberf5/roksbnkctl-tools-runner` / `v1.57.0` | The roksbnkctl runner image. Mirror it for air-gapped hubs. |
+| `runner.minVersion` / `runner.allowOlder` | `1.57.0` / `false` | The required roksbnkctl version. Semver tags below it fail at render time; the init hook checks the binary at runtime. |
 | `runner.imagePullPolicy` | `IfNotPresent` | |
 | `runner.imagePullSecrets` | `[]` | For a private mirror. |
 | `runner.env` | `{}` | Extra plain variables on every hook container (rarely needed). |
@@ -77,7 +77,7 @@ The mirror itself — host, repository prefix, username, CA — is described in
 | `storage.storageClassName` | `""` | `ibmc-vpc-block-10iops-tier` on ROKS; `local-path` on k3s. |
 | `serviceAccount.name` | `bnk-runner` | Namespaced Role: ConfigMaps (status), Jobs get/list (SyncFail names the failed hooks), optionally the FLP hand-off Secret. |
 | `secrets.mode` | `existing` | `existing`, `externalSecret` (renders an ESO `ExternalSecret`), `inline` (dev only), `none`. |
-| `secrets.name` | `bnk-secrets` | Keys roksbnkctl reads: `IBMCLOUD_API_KEY` (required); `ROKSBNKCTL_GENERIC_PASSWORD` (mirror), `ROKSBNKCTL_BIGIP_PASSWORD`, `ROKSBNKCTL_GTM_PASSWORD`, `ROKSBNKCTL_COS_HMAC_ACCESS_KEY` / `_SECRET_KEY` (remote state) as needed. |
+| `secrets.name` | `bnk-secrets` | Keys roksbnkctl reads: `IBMCLOUD_API_KEY` (required); `ROKSBNKCTL_GENERIC_PASSWORD` (mirror), `ROKSBNKCTL_BIGIP_PASSWORD` (external BIG-IP for CIS), `ROKSBNKCTL_COS_HMAC_ACCESS_KEY` / `_SECRET_KEY` (remote state) as needed. |
 | `secrets.externalSecret.*` | | `storeRef`, `refreshInterval`, `data[]` (`key` + `remoteRef`). |
 
 ## Workspace (`config`)

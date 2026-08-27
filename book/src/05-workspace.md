@@ -51,7 +51,7 @@ sizing:
   profile: small               # 6× bx2.8x32, 3 TMM pods, deploymentSize Tiny — merged into config below
 
 runner:
-  tag: v1.56.0
+  tag: v1.57.0
   runAsUser: 1000              # k3s hub; leave unset on OpenShift
 storage:
   size: 8Gi
