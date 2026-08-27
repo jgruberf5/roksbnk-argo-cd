@@ -70,28 +70,30 @@ Open **bnk-down → Logs** to follow the destroy live…
 ```text
 [status] running deployed=unknown — bnk down in progress
 …
+  Removed 1 admission webhook(s) served from f5-bnk so its deletion can complete.
+  Drained 1 BNK custom resource(s) from f5-bnk while FLO could still finalize them.
+→ terraform destroy
+…
 Plan: 0 to add, 0 to change, 36 to destroy.
-module.license.module.license.null_resource.cneinstance_available_24[0]: Destroying...
-module.license.module.license.null_resource.license_active[0]: Destroying...
-…
-module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance[0]: Destruction complete after 0s
-module.flo.module.flo.helm_release.flo[0]: Destruction complete after 2s
-…
-Error: context deadline exceeded
-  ⚠ namespace "f5-bnk" was stuck Terminating; cleared F5 finalizers on 2 object(s) and it drained.
-→ terraform destroy (retry, after freeing the stuck namespace)
-Plan: 0 to add, 0 to change, 5 to destroy.
-module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destruction complete after 8s
-module.cert_manager.module.cert_manager.kubernetes_namespace_v1.cert_manager[0]: Destruction complete after 13s
-Destroy complete! Resources: 5 destroyed.
+module.flo.module.flo.ibm_iam_trusted_profile.cne_controller[0]: Destruction complete after 1s
+module.flo.module.flo.helm_release.flo[0]: Destruction complete after 3s
+module.flo.module.flo.kubernetes_namespace_v1.f5_utils[0]: Destruction complete after 1m13s
+module.flo.module.flo.kubernetes_namespace_v1.flo[0]: Destruction complete after 2m14s
+module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destruction complete after 9s
+Destroy complete! Resources: 36 destroyed.
 ✓ BNK phase destroyed. Cluster phase /work/.roksbnkctl/sm-cli/state-cluster/ is intact.
 [status] succeeded deployed=false — bnk down completed
 ```
 
-`bnk down` drains BNK's custom resources while the operator is still running,
-then tears the phases down in reverse-dependency order and sweeps the things
-Terraform cannot see: F5's validating webhook and the licence secrets in the
-utils namespace. Custom resource definitions are deliberately left in place.
+`bnk down` first removes F5's validating webhook (it is served by the very
+controller being removed, and would otherwise refuse every delete that follows),
+then drains the custom resources the product guide names while the operator can
+still finalize them — the `CNEInstance` above all; its components are left to
+FLO, which owns them — and only then runs one `terraform destroy`, which takes
+the two namespaces, the FLO and cert-manager releases and the IBM Cloud pieces
+down in reverse-dependency order. Four minutes end to end, most of it the
+namespaces finalizing. Custom resource definitions are deliberately left in
+place.
 
 When it finishes the Application is **Synced / Healthy — "BNK torn down"**,
 with `bnk-status` showing `lifecycle=down outcome=succeeded deployed=false`:
