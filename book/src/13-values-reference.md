@@ -83,8 +83,10 @@ The mirror itself — host, repository prefix, username, CA — is described in
 ## Workspace (`config`)
 
 `config` is roksbnkctl's `config.yaml`, verbatim (`roksbnkctl init example`
-prints the schema; the roksbnkctl book's *Workspace config* chapter documents
-every key). The chart:
+prints the schema; the generated
+[config cheatsheet](https://jgruberf5.github.io/roksbnkctl/config-cheatsheet.html)
+lists every key with its dotted path, and the roksbnkctl book's *Workspace
+config* chapter explains them). The chart:
 
 - merges `sizing.profile` into `cluster.workers_per_zone`,
   `cluster.worker_flavor`, `bnk.tmm_replicas`, `bnk.cneinstance_size`;

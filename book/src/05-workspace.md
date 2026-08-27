@@ -35,8 +35,9 @@ chart fills in the node count, the node flavour and the TMM pod count:
 
 `apps/overlays/sm-cli/values.yaml` has two halves, and nothing appears in
 both. The `config:` block is **roksbnkctl's own `config.yaml`**, verbatim:
-the same schema the roksbnkctl book documents and `roksbnkctl init example`
-prints — the cluster, the gateway, the BNK version, the supply chain. The chart
+the same schema `roksbnkctl init example` prints and the roksbnkctl
+[config cheatsheet](https://jgruberf5.github.io/roksbnkctl/config-cheatsheet.html)
+lists key by key — the cluster, the gateway, the BNK version, the supply chain. The chart
 renders it into a ConfigMap, mounts it at `/config`, and the hooks read it
 from there. Everything above it is Argo CD's concern only — things roksbnkctl
 has no field for: which lifecycle verb to run, the size profile, the runner
