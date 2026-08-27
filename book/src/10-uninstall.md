@@ -114,7 +114,7 @@ Because the Application carries the `resources-finalizer.argocd.argoproj.io`
 finalizer and the chart renders a `PreDelete` hook, clicking **OK** does not
 remove anything yet. Argo CD marks the Application for deletion and creates
 `bnk-predelete`, which runs `bnk down --auto`. The Application stays visible —
-*Deleting* — for as long as the destroy takes:
+*Deleting* — for as long as the destroy takes, about three minutes:
 
 ![The Application right after OK: deletion requested, PreDelete hook starting](images/delete-deleting.png)
 
@@ -128,18 +128,15 @@ job/bnk-predelete` — before it is gone.
 ![bnk-predelete logs while the destroy is running](images/logs-bnk-predelete-running.png)
 
 ```text
-Plan: 0 to add, 0 to change, 36 to destroy.
-module.cne_instance.module.cneinstance.null_resource.validation_webhook_ready[0]: Destruction complete after 1s
-module.license.module.license.null_resource.cneinstance_available_24[0]: Destruction complete after 1s
-module.license.module.license.null_resource.license_active[0]: Destruction complete after 1s
-module.testing.null_resource.roks_cluster_gate: Destruction complete after 1s
-module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance_scc_policies["f5-bnk/flo-f5-lifecycle-operator"]: Destruction complete after 0s
+  Removed 1 admission webhook(s) served from f5-bnk so its deletion can complete.
+  Drained 1 BNK custom resource(s) from f5-bnk while FLO could still finalize them.
+→ terraform destroy
 …
-Error: context deadline exceeded
-  ⚠ namespace "f5-bnk" was stuck Terminating; cleared F5 finalizers on 2 object(s) and it drained.
-→ terraform destroy (retry, after freeing the stuck namespace)
-Plan: 0 to add, 0 to change, 5 to destroy.
-Destroy complete! Resources: 5 destroyed.
+Plan: 0 to add, 0 to change, 36 to destroy.
+module.flo.module.flo.helm_release.flo[0]: Destruction complete after 2s
+module.flo.module.flo.kubernetes_namespace_v1.flo[0]: Destruction complete after 43s
+module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destruction complete after 9s
+Destroy complete! Resources: 36 destroyed.
 ✓ BNK phase destroyed. Cluster phase /work/.roksbnkctl/sm-cli/state-cluster/ is intact.
 ```
 
