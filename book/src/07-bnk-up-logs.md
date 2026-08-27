@@ -13,7 +13,7 @@ tree, then the **Logs** tab in the sliding panel. The URL is bookmarkable —
 ✓ Applied 1 override(s) from environment: ibmcloud.api_key_b64 (IBMCLOUD_API_KEY)
 ✓ Wrote /work/.roksbnkctl/sm-cli/config.yaml
 ✓ Current workspace: sm-cli
-roksbnkctl v1.56.0 (commit 12c481c…)
+roksbnkctl v1.57.0 (commit 5c8db66…)
 ✓  terraform              /usr/local/bin/terraform (Terraform v1.10.5)
 ✓  helm                   /usr/local/bin/helm (v3.21.4)
 ✓  ibmcloud api key       resolved
@@ -132,7 +132,7 @@ Three things to notice:
 [status] succeeded deployed=true — post-sync bnk status captured
 Phase:                   bnk (deployed)
 flo_namespace:           f5-bnk
-flo_trusted_profile_id:  Profile-decf78f4-d511-442d-9c38-3b58ff4405bd
+flo_trusted_profile_id:  Profile-0f3c2e58-c58d-482e-ac75-d71637041c57
 flo_utils_namespace:     f5-utils
 ```
 
