@@ -76,7 +76,7 @@ EVALUATION.md                   the discovery study
 | | |
 |---|---|
 | Argo CD | OpenShift GitOps (in-target) or upstream Argo CD ≥ 3.3 (hub). PreDelete hooks need ≥ 3.3; older versions use the `lifecycle: down` path. |
-| Runner image | `ghcr.io/jgruberf5/roksbnkctl-tools-runner:v1.57.0` — roksbnkctl **≥ 1.57.0 required** (terraform ≥ 1.10, helm, kubectl/oc, ibmcloud). Mirror it for air-gapped sites. |
+| Runner image | `ghcr.io/jgruberf5/roksbnkctl-tools-runner:v1.58.0` — roksbnkctl **≥ 1.58.0 required** (terraform ≥ 1.10, helm, kubectl/oc, ibmcloud). Mirror it for air-gapped sites. |
 | IBM Cloud | An API key with VPC, Kubernetes Service, Transit Gateway and COS access, held in `bnk-secrets` as `IBMCLOUD_API_KEY`. roksbnkctl mints the ROKS admin kubeconfig from it; the pod ServiceAccount is never used against ROKS. |
 | Supply chain | The FAR auth tarball and subscription JWT in the COS bucket named in `config.cos`, with the object names in `config.bnk.far_auth_file` / `config.bnk.subscription_jwt_file`. |
 | Storage | An RWO storage class for the workspace PVC (`ibmc-vpc-block-10iops-tier` on ROKS). |
@@ -177,7 +177,7 @@ Delete the Application (PreDelete runs `bnk down --auto`, then the resources go;
 | `lifecycle` | `up` | `up` → Sync hook runs `bnk up`; `down` → `bnk down` |
 | `topology` | `in-target` | `in-target` or `hub` |
 | `line` | derived from `config.bnk.manifest_version` | `2.3` enables the cwc-guard container |
-| `runner.image`, `runner.tag` | runner `v1.57.0` | the roksbnkctl runner image |
+| `runner.image`, `runner.tag` | runner `v1.58.0` | the roksbnkctl runner image |
 | `config.cluster.create` / `config.cluster.name` | — | `cluster up` (hub) vs `cluster register <name>` |
 | `registry.mode` | derived from `config.registry` | `adopt` when a mirror is configured; `replicate` to populate it from the pod |
 | `preflight.doctor` / `preflight.command` | `true` / `""` | run `doctor`; delegate the gate to a roksbnkctl verb once `bnk preflight` exists |
