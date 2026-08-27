@@ -290,20 +290,17 @@ removes anything else.
 
 ```text
 → FLP licensing: BNK will license via the F5 License Proxy — bnk.flp.external (a proxy in another cluster).
+  Removed 1 admission webhook(s) served from f5-bnk so its deletion can complete.
+  Drained 1 BNK custom resource(s) from f5-bnk while FLO could still finalize them.
 → terraform destroy
 …
 Plan: 0 to add, 0 to change, 40 to destroy.
-module.cne_instance.module.cneinstance.kubectl_manifest.cneinstance[0]: Destroying...
 module.flo.module.flo.kubernetes_secret_v1.mirror_secret_flo[0]: Destroying...
-module.flo.module.flo.kubectl_manifest.cnemanifest[0]: Destroying...
-module.flo.module.flo.ibm_iam_trusted_profile.cne_controller[0]: Destroying...
-…
-Error: context deadline exceeded
-  ⚠ namespace "f5-bnk" was stuck Terminating; cleared F5 finalizers on 2 object(s) and it drained.
-→ terraform destroy (retry, after freeing the stuck namespace)
-Plan: 0 to add, 0 to change, 5 to destroy.
-module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destroying...
-Destroy complete! Resources: 5 destroyed.
+module.flo.module.flo.helm_release.flo[0]: Destruction complete after 3s
+module.flo.module.flo.kubernetes_namespace_v1.flo[0]: Destruction complete after 43s
+module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destruction complete after 8s
+Destroy complete! Resources: 40 destroyed.
+✓ BNK phase destroyed. Cluster phase /work/.roksbnkctl/sm-cli-mirror/state-cluster/ is intact.
 ```
 
 Forty resources this time rather than Part II's thirty-seven: the three extra
