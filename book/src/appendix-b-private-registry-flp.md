@@ -308,8 +308,9 @@ Destroy complete! Resources: 5 destroyed.
 
 Forty resources this time rather than Part II's thirty-seven: the three extra
 are the `mirror-secret` pull Secrets `bnk up` placed in `f5-bnk`, `f5-utils`
-and `kube-system`. The `f5-bnk` namespace stall and its repair are the same as
-in Part IV. Sixteen minutes after **OK** the Application is gone; the cluster
+and `kube-system`. As in Part IV it is one pass: the webhook is removed, the
+`CNEInstance` drained while FLO can still finalize it, then the destroy. About
+three minutes after **OK** the Application is gone; the cluster
 keeps only the F5 CRDs (deliberately) and the empty `roksbnkctl-registry-trust`
 namespace the probe ran in. The mirror and the proxy are estate, not part of
 the workspace — neither is touched — and the workspace's PVC stays on the hub

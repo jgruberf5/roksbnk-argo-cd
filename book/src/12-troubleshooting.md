@@ -57,6 +57,14 @@ the log from the end:
   never reported Available, or the licence never went Active. Check the pods in
   `f5-bnk`/`f5-utils` on the cluster (image pulls from FAR are the usual cause
   on a first install; the JWT is the usual cause for the licence).
+- **`bnk-license not ready -- status.state="Registering"` with every pod
+  Running** (proxy mode) — the CWC obtained its certificate but never sent the
+  registration: the proxy's log shows a `POST /license-proxy/v1/certificates`
+  and no `POST /license-proxy/v1/entitlements/telemetry`, and the CWC logs
+  `ResponseCM20GetBackLater` every five seconds. It does not recover on its own
+  and restarting the CWC does not help. Set `lifecycle: down`, sync, set it back
+  to `up`, sync — the next fresh install registers normally (seen once in six
+  proxy installs).
 - **`registry CA … unreachable from node`** — the registry-CA DaemonSet could
   not reach the mirror from every node: a Transit Gateway or security-group
   problem, not a BNK one.
