@@ -51,7 +51,6 @@ config:                        # roksbnkctl config.yaml
                                # no generic_ca_b64: the registry's certificate is publicly trusted
   bnk:
     manifest_version: 2.4.0-EA
-    far_repo_url: repo.f5.com  # only used by registry adopt --verify-contents (the BOM comes from the source)
     far_auth_file: non-ga-prod-pull-key.tgz
     subscription_jwt_file: subscription.jwt
     license_mode: f5licenseproxy

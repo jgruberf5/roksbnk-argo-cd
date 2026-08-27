@@ -101,7 +101,6 @@ config:                        # roksbnkctl config.yaml
                                # no generic_ca_b64: the registry's certificate is publicly trusted
   bnk:
     manifest_version: 2.4.0-EA
-    far_repo_url: repo.f5.com  # only used by registry adopt --verify-contents (the BOM comes from the source)
     far_auth_file: non-ga-prod-pull-key.tgz
     subscription_jwt_file: subscription.jwt
     license_mode: f5licenseproxy
@@ -132,7 +131,7 @@ What each part does:
 | `registry.adoptArgs: --verify-contents` | `registry adopt` builds the 2.4.0-EA bill of materials from the F5 source and digest-checks every one of its 94 artifacts in the mirror before recording it — proof, not assertion, that the mirror is complete for this version. It needs `repo.f5.com` reachable from the hook Job (true on this hub). Leave it empty when it is not: adopt then records the mirror as configured, with a ⚠ that it could not list Artifactory's registry-wide catalogue (Artifactory answers `/v2/_catalog` with an empty response; a Harbor or Docker registry answers it and adopt reports how many repositories it found under the prefix). |
 | `config.bnk.license_mode: f5licenseproxy` | BNK licenses through the proxy instead of F5's cloud. |
 | `config.bnk.flp.external` | The proxy's URL and root CA (base64 PEM). The CA is public data, so it lives in the overlay; the preflight gate refuses to run `bnk up` without both. |
-| `config.bnk.far_*` | Still named: `registry adopt --verify-contents` and `registry replicate` build the bill of materials from the F5 source, and the subscription is part of the licence. Neither is contacted by the cluster. |
+| `config.bnk.far_auth_file` / `subscription_jwt_file` | Still named, for licensing, not for pulling: `bnk up` fetches the F5 pull-key tarball from COS because the subscription JWT inside it goes into the `License` resource — BNK's licensing identity, whichever registry the images come from. F5's registry itself is contacted only by `registry adopt --verify-contents`, as the *source* it compares the mirror against (`bnk.far_repo_url` defaults to `repo.f5.com` and is not set here). The cluster never reaches either. |
 | `secrets.mode: existing` | `bnk-secrets` carries two keys here — the IBM Cloud API key and the registry token. |
 
 The Application is `apps/sm-cli-mirror-application.yaml` — the Part II
