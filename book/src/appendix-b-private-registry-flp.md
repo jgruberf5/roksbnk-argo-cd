@@ -205,7 +205,7 @@ render against `artifactory.grubernet.org/bnk-mirror`.
 ### bnk-preflight
 
 ```text
-preflight: FLP hand-off present (config.bnk.flp.external)
+preflight: F5 License Proxy hand-off present (config.bnk.flp.external)
 preflight: ok (deployed=false)
 ```
 
@@ -268,8 +268,8 @@ and the licence was granted through the proxy:
 
 ```text
 $ kubectl get license -n f5-utils
-NAME          STATE    MODE             ENTITLEMENT   ENVIRONMENT   EXPIRY                 AGE
-bnk-license   Active   f5licenseproxy   eval          test          2026-09-25T19:22:04Z   4m27s
+NAME          STATE    MODE             ENTITLEMENT   ENVIRONMENT   EXPIRY                 DIGITALASSETID                         AGE
+bnk-license   Active   f5licenseproxy   eval          test          2026-09-26T04:15:44Z   0866d124-8642-45ba-b17f-a54d88b67247   4m57s
 ```
 
 `bnk-status` then reports what Part II's did: `probe.cneinstance: Available=True`,
@@ -303,7 +303,7 @@ Error: context deadline exceeded
 → terraform destroy (retry, after freeing the stuck namespace)
 Plan: 0 to add, 0 to change, 5 to destroy.
 module.cert_manager.module.cert_manager.helm_release.cert_manager[0]: Destroying...
-…
+Destroy complete! Resources: 5 destroyed.
 ```
 
 Forty resources this time rather than Part II's thirty-seven: the three extra
