@@ -1,0 +1,43 @@
+# bnk-small: the hub creates the VPC, the ROKS cluster and BNK from one overlay, written by hand (apps/applicationset-workspaces.yaml
+# derives the same Application — name, namespace, labels — from the overlay; use
+# that for anything beyond a single workspace). Manual sync — syncing IS the
+# "Apply this plan?" step.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bnk-bnk-small
+  namespace: argocd
+  labels:                                     # mirror the overlay: config.bnk.manifest_version, sizing.profile, config.cluster.name
+    roksbnkctl.io/bnk-version: 2.4.0-EA
+    roksbnkctl.io/line: "2.4"
+    roksbnkctl.io/sizing-profile: small
+    roksbnkctl.io/cluster: bnk-small
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # delete → PreDelete hook runs bnk down first
+spec:
+  project: bnk
+  sources:
+    - repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
+      targetRevision: main
+      path: charts/bnk-workspace
+      helm:
+        releaseName: bnk-bnk-small
+        valueFiles:
+          - $values/apps/overlays/bnk-small/values.yaml
+    - repoURL: git@github.com:jgruberf5/roksbnk-argo-cd.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bnk-bnk-small
+  ignoreDifferences:
+    - kind: ConfigMap
+      name: bnk-status
+      jsonPointers: ["/data"]
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - PruneLast=true
+    retry:
+      limit: 0
